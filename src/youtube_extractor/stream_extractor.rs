@@ -31,7 +31,7 @@ pub struct YTStreamExtractor<D:Downloader>{
     // video_info_page:Map<String,String>,
     player_config:Map<String,Value>,
     player_response:Map<String,Value>,
-    player_code:Option<String>,
+    player_code:String,
 
     // is_age_restricted:bool,
     downloader: D
@@ -64,7 +64,7 @@ impl<D:Downloader> YTStreamExtractor<D>{
     
     }
 
-    pub fn new(doc:&str,_url:&str, downloader: D) -> Result<Self,String> {
+    pub async fn new(doc:&str,_url:&str, downloader: D) -> Result<Self,String> {
         let player_config = YTStreamExtractor::<D>::get_player_config(doc).ok_or("cannot get player_config".to_string())?;
         // println!("player config : {:?}",player_config);
 
@@ -73,6 +73,8 @@ impl<D:Downloader> YTStreamExtractor<D>{
 
         let player_response = YTStreamExtractor::<D>::get_player_response(&player_args).ok_or("cannot get player response".to_string())?;
         // println!("player response {:?}", player_response);
+        let player_url = YTStreamExtractor::<D>::get_player_url(&player_config).ok_or("Cant get player url".to_owned())?;
+        let player_code = YTStreamExtractor::<D>::get_player_code(&player_url,&downloader).await?;
 
         Ok(
             YTStreamExtractor{
@@ -80,7 +82,7 @@ impl<D:Downloader> YTStreamExtractor<D>{
                 player_response,
                 player_config,
                 downloader,
-                player_code:None,
+                player_code,
                 doc:String::from(doc)
             }
         )
@@ -138,30 +140,24 @@ impl<D:Downloader> YTStreamExtractor<D>{
 
     // pub fn get_video_streams()
 
-    pub async fn get_player_code(&mut self)->Result<String,String>{
-        if let Some(player_code)= &self.player_code{
-            Ok(player_code.clone())
-        }else{
-            let player_url = YTStreamExtractor::<D>::get_player_url(&self.player_config).ok_or("Cannot get player url".to_string())?;
-            let player_url = {
-                if player_url.starts_with("http://"){
-                    player_url
-                }else{
-                    format!("https://youtube.com{}",player_url)
-                }
-            };
-            let player_code = self.downloader.download(&player_url).await?;
-            let player_code = YTStreamExtractor::<D>::load_decryption_code(&player_code)?;
-            self.player_code = Some(player_code.clone());
-            Ok(player_code)
-        }
+    pub async fn get_player_code(player_url:&str,downloader:&D)->Result<String,String>{
+        let player_url = {
+            if player_url.starts_with("http://"){
+                player_url.to_string()
+            }else{
+                format!("https://youtube.com{}",player_url)
+            }
+        };
+        let player_code = downloader.download(&player_url).await?;
+        let player_code = YTStreamExtractor::<D>::load_decryption_code(&player_code)?;
+        Ok(player_code)
+
     }
 
     pub async fn get_video_stream(&mut self)->Result<Vec<StreamItem>,String>{
 
         let mut video_streams = vec![];
-        let player_code = self.get_player_code().await?;
-        for entry in YTStreamExtractor::<D>::get_itags(FORMATS,ItagType::Video,&self.player_response,&player_code)?{
+        for entry in YTStreamExtractor::<D>::get_itags(FORMATS,ItagType::Video,&self.player_response,&self.player_code)?{
             let itag = entry.1;
             video_streams.push(
                 StreamItem{
@@ -176,8 +172,7 @@ impl<D:Downloader> YTStreamExtractor<D>{
     pub async fn get_video_only_stream(&mut self)->Result<Vec<StreamItem>,String>{
 
         let mut video_streams = vec![];
-        let player_code = self.get_player_code().await?;
-        for entry in YTStreamExtractor::<D>::get_itags(ADAPTIVE_FORMATS,ItagType::VideoOnly,&self.player_response,&player_code)?{
+        for entry in YTStreamExtractor::<D>::get_itags(ADAPTIVE_FORMATS,ItagType::VideoOnly,&self.player_response,&self.player_code)?{
             let itag = entry.1;
             video_streams.push(
                 StreamItem{
@@ -191,8 +186,7 @@ impl<D:Downloader> YTStreamExtractor<D>{
 
     pub async fn get_audio_streams(&mut self)->Result<Vec<StreamItem>,String>{
         let mut audio_streams = vec![];
-        let player_code = self.get_player_code().await?;
-        for entry in YTStreamExtractor::<D>::get_itags(ADAPTIVE_FORMATS,ItagType::Audio,&self.player_response,&player_code)?{
+        for entry in YTStreamExtractor::<D>::get_itags(ADAPTIVE_FORMATS,ItagType::Audio,&self.player_response,&self.player_code)?{
             let itag = entry.1;
             audio_streams.push(
                 StreamItem{

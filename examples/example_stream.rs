@@ -23,7 +23,7 @@ async fn main() -> Result<(), String> {
     let downloader = DownloaderExample{};
     let body = downloader.download(url).await?;
 
-    let mut stream_extractor = YTStreamExtractor::new(&body, url, downloader).expect("Cannot create streamextractor");
+    let mut stream_extractor = YTStreamExtractor::new(&body, url, downloader).await?;
     let video_streams = stream_extractor.get_video_stream().await?;
     println!("AUDIO/VIDEO STREAMS \n");
     println!("{:#?}",video_streams);
