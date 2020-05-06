@@ -4,6 +4,8 @@ use rusty_pipe::youtube_extractor::search_extractor::{*};
 use std::io;
 use scraper::{Html};
 
+use urlencoding::encode;
+
 
 fn main() {
 
@@ -16,6 +18,8 @@ fn main() {
     let mut search_query = String::new();
     println!("Enter Search Query");
     io::stdin().read_line(&mut search_query).expect("Cannot Read Input");
+
+    search_query = encode(&search_query);
 
     let resp = client.get(&format!("https://www.youtube.com/results?search_query={}",search_query)).send().expect("Cannot send");
 
@@ -48,16 +52,17 @@ fn main() {
                     Some(d)=> println!("Duration: {}s",d)
                 }
                 println!("Uploader: {}",streaminfoitem.get_uploader_name().unwrap_or("Unknown"));
-                println!("Uploader Url: {}",streaminfoitem.get_uploader_url().unwrap_or("Unknown"));
+                println!("Uploader Url: {}",streaminfoitem.get_uploader_url().unwrap_or("Unknown".to_owned()));
                 println!("Upload Date: {}",streaminfoitem.get_textual_upload_date().unwrap_or("Unknown"));
                 println!("View Count: {}",streaminfoitem.get_view_count().map_or("Unknown".to_owned(),|c| c.to_string()));
-                println!("Thumbnail Url: {}",streaminfoitem.get_thumbnail_url().unwrap_or("Unknown"));
+                println!("Thumbnail Url: {}",streaminfoitem.get_thumbnail_url().unwrap_or("Unknown".to_owned()));
 
                 println!();
             },
             YTSearchItem::ChannelInfoItem(channel_info_item)=>{
                 println!("Channel");
                 println!("Name : {}",channel_info_item.get_name().unwrap_or("Unknown"));
+                println!("Url : {}",channel_info_item.get_url().unwrap_or("Unknown".to_owned()));
                 println!("Thumbnail Url : {}",channel_info_item.get_thumbnail_url().unwrap_or("Unknown"));
                 println!("Subscriber's count : {}",channel_info_item.get_subscriber_count().map_or("Unknown".to_owned(),|c|c.to_string()));
                 println!("Description : {}",channel_info_item.get_description().unwrap_or("Unknown"));
@@ -65,7 +70,16 @@ fn main() {
 
                 println!();
             },
-            _ => {}
+            YTSearchItem::PlaylistInfoItem(playlist_info_item) => {
+                println!("Playlist");
+                println!("Name : {}",playlist_info_item.get_name().unwrap_or("Unknown".to_owned()));
+                println!("Url : {}",playlist_info_item.get_url().unwrap_or("Unknown".to_owned()));
+                println!("Thumbnail Url : {}",playlist_info_item.get_thumbnail_url().unwrap_or("Unknown"));
+                println!("Uploader Name : {}",playlist_info_item.get_uploader_name().unwrap_or("Unknown"));
+                println!("Stream Count : {}",playlist_info_item.get_stream_count().map_or("Unknown".to_owned(),|d|d.to_string()));
+
+                println!();
+            }
         }
     }
 

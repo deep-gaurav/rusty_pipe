@@ -28,9 +28,9 @@ impl YTStreamInfoItemExtractor<'_>{
         }
     }
 
-    pub fn get_url(&self)->Option<&str>{
+    pub fn get_url(&self)->Option<String>{
         let dl = self.item.select(&Selector::parse("h3").unwrap()).next()?.select(&Selector::parse("a").unwrap()).next()?;
-        dl.value().attr("href")
+        Some(super::fix_url(dl.value().attr("href")?))
     }
 
     pub fn is_live(&self)->bool{
@@ -61,12 +61,12 @@ impl YTStreamInfoItemExtractor<'_>{
     }
 
 
-    pub fn get_channel_url(&self)->Option<&str>{
+    pub fn get_channel_url(&self)->Option<String>{
         let el = self.item.select(&Selector::parse("div[class*=\"yt-lockup-byline\"] a").unwrap()).next()?;
-        Some(el.value().attr("href")?)
+        Some(super::fix_url(el.value().attr("href")?))
     }
 
-    pub fn get_uploader_url(&self)->Option<&str>{
+    pub fn get_uploader_url(&self)->Option<String>{
         self.get_channel_url()
     }
 
@@ -106,7 +106,7 @@ impl YTStreamInfoItemExtractor<'_>{
 
     }
 
-    pub fn get_thumbnail_url(&self)->Option<&str>{
+    pub fn get_thumbnail_url(&self)->Option<String>{
         let mut url:Option<&str> ;
 
         let te = self.item.select(&Selector::parse("div.yt-thumb.video-thumb img").unwrap()).next()?;
@@ -118,7 +118,7 @@ impl YTStreamInfoItemExtractor<'_>{
                 url = te.value().attr("data-thumb");
             }
         }
-        url
+        Some(super::fix_url(url?))
 
     }
 

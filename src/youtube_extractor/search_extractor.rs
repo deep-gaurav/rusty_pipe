@@ -1,12 +1,13 @@
 use scraper::{Html,Selector,ElementRef};
 use crate::youtube_extractor::stream_info_item_extractor::YTStreamInfoItemExtractor;
 use crate::youtube_extractor::channel_info_item_extractor::YTChannelInfoItemExtractor;
+use crate::youtube_extractor::playlist_info_item_extractor::YTPlaylistInfoItemExtractor;
 
 
 pub enum YTSearchItem<'a>{
     StreamInfoItem(YTStreamInfoItemExtractor<'a>),
     ChannelInfoItem(YTChannelInfoItemExtractor<'a>),
-    PlaylistInfoItem
+    PlaylistInfoItem(YTPlaylistInfoItemExtractor<'a>)
 }
 
 
@@ -39,8 +40,8 @@ impl YTSearchExtractor{
                 if let Some(el)=itemel.select(&Selector::parse("div[class*=\"yt-lockup-channel\"").unwrap()).next(){
                     search_items.push(YTSearchItem::ChannelInfoItem(YTChannelInfoItemExtractor{el}));
                 }
-                if itemel.select(&Selector::parse("div[class*=\"yt-lockup-playlist\"").unwrap()).next().is_some(){
-                    search_items.push(YTSearchItem::PlaylistInfoItem);
+                if let Some(el) = itemel.select(&Selector::parse("div[class*=\"yt-lockup-playlist\"").unwrap()).next(){
+                    search_items.push(YTSearchItem::PlaylistInfoItem(YTPlaylistInfoItemExtractor{el}));
                 }
             }
         }

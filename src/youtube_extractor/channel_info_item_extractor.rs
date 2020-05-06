@@ -20,6 +20,27 @@ impl YTChannelInfoItemExtractor<'_>{
         self.el.select(&Selector::parse("a.yt-uix-tile-link").unwrap()).next()?.text().next()
     }
 
+    fn url_using_button(&self)->Option<String>{
+        let button_tracking_url = self.el.select(&Selector::parse("button[class*=\"yt-uix-button\"]").unwrap()).next()?.value().attr("data-href")?;
+        let channel_id_pattern = regex::Regex::new("(?:.*?)%252Fchannel%252F([A-Za-z0-9\\-_]+)(?:.*)").unwrap();
+        let capture = channel_id_pattern.captures(button_tracking_url)?;
+        Some(super::channel_extractor::CHANNEL_URL_BASE.to_owned()+capture.get(1)?.as_str())
+    }
+
+    pub fn get_url(&self)->Option<String>{
+        let url = self.url_using_button();
+        if url.is_some(){
+            url
+        }else {
+            if let Some(url)=self.el.select(&Selector::parse("a[class*=\"yt-uix-tile-link\"]").unwrap()).next()
+                ?.value().attr("href"){
+                Some(super::fix_url(url))
+            }else {
+                None
+            }
+        }
+    }
+
     pub fn get_subscriber_count(&self)->Option<u32>{
         let subs_el = self.el.select(&Selector::parse("span[class*=\"yt-subscriber-count\"]").unwrap()).next();
         match subs_el {
