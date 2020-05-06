@@ -39,8 +39,8 @@ pub struct YTStreamExtractor<D:Downloader>{
 
 #[derive(Debug)]
 pub struct StreamItem{
-    url:String,
-    itag:Itag
+    pub url:String,
+    pub itag:Itag
 }
 
 impl<D:Downloader> YTStreamExtractor<D>{
