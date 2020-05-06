@@ -17,13 +17,13 @@ async fn main() -> Result<(), String> {
 
 
 
-    let url = "https://www.youtube.com/watch?v=09R8_2nJtjg&disable_polymer=1";
+    // let url = "https://www.youtube.com/watch?v=09R8_2nJtjg&disable_polymer=1";
     // let resp = reqwest::get(url).await.map_err(|er|er.to_string())?;
 
     let downloader = DownloaderExample{};
-    let body = downloader.download(url).await?;
+    // let body = downloader.download(url).await?;
 
-    let mut stream_extractor = YTStreamExtractor::new(&body, url, downloader).await?;
+    let mut stream_extractor = YTStreamExtractor::new("09R8_2nJtjg", downloader).await?;
     let video_streams = stream_extractor.get_video_stream().await?;
     println!("AUDIO/VIDEO STREAMS \n");
     println!("{:#?}",video_streams);

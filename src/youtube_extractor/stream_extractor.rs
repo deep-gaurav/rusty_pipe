@@ -64,8 +64,10 @@ impl<D:Downloader> YTStreamExtractor<D>{
     
     }
 
-    pub async fn new(doc:&str,_url:&str, downloader: D) -> Result<Self,String> {
-        let player_config = YTStreamExtractor::<D>::get_player_config(doc).ok_or("cannot get player_config".to_string())?;
+    pub async fn new(video_id:&str, downloader: D) -> Result<Self,String> {
+        let url = format!("https://www.youtube.com/watch?v={}&disable_polymer=1",video_id);
+        let doc = downloader.download(&url).await?;
+        let player_config = YTStreamExtractor::<D>::get_player_config(&doc).ok_or("cannot get player_config".to_string())?;
         // println!("player config : {:?}",player_config);
 
         let player_args = YTStreamExtractor::<D>::get_player_args(&player_config).ok_or("cannot get player args".to_string())?;
@@ -154,7 +156,7 @@ impl<D:Downloader> YTStreamExtractor<D>{
 
     }
 
-    pub async fn get_video_stream(&mut self)->Result<Vec<StreamItem>,String>{
+    pub async fn get_video_stream(&self)->Result<Vec<StreamItem>,String>{
 
         let mut video_streams = vec![];
         for entry in YTStreamExtractor::<D>::get_itags(FORMATS,ItagType::Video,&self.player_response,&self.player_code)?{
@@ -169,7 +171,7 @@ impl<D:Downloader> YTStreamExtractor<D>{
         Ok(video_streams)
     }
 
-    pub async fn get_video_only_stream(&mut self)->Result<Vec<StreamItem>,String>{
+    pub async fn get_video_only_stream(&self)->Result<Vec<StreamItem>,String>{
 
         let mut video_streams = vec![];
         for entry in YTStreamExtractor::<D>::get_itags(ADAPTIVE_FORMATS,ItagType::VideoOnly,&self.player_response,&self.player_code)?{
@@ -184,7 +186,7 @@ impl<D:Downloader> YTStreamExtractor<D>{
         Ok(video_streams)
     }
 
-    pub async fn get_audio_streams(&mut self)->Result<Vec<StreamItem>,String>{
+    pub async fn get_audio_streams(&self)->Result<Vec<StreamItem>,String>{
         let mut audio_streams = vec![];
         for entry in YTStreamExtractor::<D>::get_itags(ADAPTIVE_FORMATS,ItagType::Audio,&self.player_response,&self.player_code)?{
             let itag = entry.1;
