@@ -1,10 +1,11 @@
 extern crate rusty_pipe;
 
-fn main(){
+fn main() {
     let r = boa::exec("function sum(a,b){return a+b;} sum(2,5)");
-    println!("{}",r);
+    println!("{}", r);
 
-    let r2 = boa::exec(r##"
+    let r2 = boa::exec(
+        r##"
 var Fv={
     Cc:function(a,b){a.splice(0,b)},
     UF:function(a){a.reverse()},
@@ -24,7 +25,8 @@ var Gv=function(a){
     return a.join("")
 };
 function decrypt(a){return Gv(a);};decrypt("M=AOzsJhJF_0tQ657YzWo2o_dI4GAFEjmi2l6f1uml7e3CQ=C0qfVIBJA13JjabpXp9nsd14cLOQa8i0nZY3ZlYoU2wQgIQRwsLlPpJCC")
-    "##);
+    "##,
+    );
 
     println!("{}", r2);
 }

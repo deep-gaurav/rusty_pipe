@@ -274,7 +274,6 @@ lazy_static! {
             fps: 60,
             ..Itag::default()
         },
-
         Itag {
             id: 394,
             fps: 24,
@@ -312,11 +311,10 @@ lazy_static! {
             itag_type: VideoOnly,
             ..Itag::default()
         },
-
     ];
 }
 
-#[derive(PartialEq,Clone,Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum ItagType {
     Audio,
     Video,
@@ -329,7 +327,7 @@ impl Default for ItagType {
     }
 }
 
-#[derive(Default,Clone,Debug)]
+#[derive(Default, Clone, Debug)]
 pub struct Itag {
     pub id: i64,
     pub itag_type: ItagType,
@@ -339,9 +337,8 @@ pub struct Itag {
 }
 
 impl Itag {
-
-    pub fn is_supported(id:i64) -> bool{
-        for itag in ITAG_LIST.iter(){
+    pub fn is_supported(id: i64) -> bool {
+        for itag in ITAG_LIST.iter() {
             if itag.id == id {
                 return true;
             }
@@ -349,13 +346,12 @@ impl Itag {
         false
     }
 
-    pub fn get_itag(id:i64) -> Result<Itag,String>{
-        for itag in ITAG_LIST.iter(){
+    pub fn get_itag(id: i64) -> Result<Itag, String> {
+        for itag in ITAG_LIST.iter() {
             if itag.id == id {
                 return Ok(itag.clone());
             }
         }
-        Err(format!("Itag id {} not found",id))
+        Err(format!("Itag id {} not found", id))
     }
-
 }

@@ -1,10 +1,10 @@
 extern crate rusty_pipe;
 use quick_js::{Context, JsValue};
 
-fn main(){
+fn main() {
     let context = Context::new().unwrap();
     let r = context.eval("function sum(a,b){return a+b;} sum(2,5)");
-    println!("{:?}",r);
+    println!("{:?}", r);
 
     let r2 = context.eval(r##"
 var Fv={
