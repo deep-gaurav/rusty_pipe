@@ -30,7 +30,6 @@ const HARDCODED_CLIENT_VERSION: &str = "2.20200214.04.00";
 
 pub struct YTStreamExtractor<D: Downloader> {
     doc: String,
-    doc_html: Html,
     player_args: Map<String, Value>,
     // video_info_page:Map<String,String>,
     player_config: Map<String, Value>,
@@ -115,7 +114,6 @@ impl<D: Downloader> YTStreamExtractor<D> {
             initial_data,
             primary_info_renderer,
             secondary_info_renderer,
-            doc_html: Html::parse_document(&doc),
             doc: String::from(doc),
             video_id: String::from(video_id),
         })
