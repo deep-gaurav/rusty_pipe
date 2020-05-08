@@ -7,10 +7,10 @@ use scraper::Html;
 use std::io;
 
 use async_trait::async_trait;
-use urlencoding::encode;
 use std::collections::hash_map::RandomState;
 use std::collections::HashMap;
 use std::str::FromStr;
+use urlencoding::encode;
 
 #[tokio::main]
 async fn main() -> Result<(), String> {
@@ -23,22 +23,40 @@ async fn main() -> Result<(), String> {
     let downloader = DownloaderExample {};
     // let body = downloader.download(url).await?;
 
-    let mut stream_extractor = YTStreamExtractor::new("09R8_2nJtjg", downloader).await?;
-    let video_streams = stream_extractor.get_video_stream().await?;
+    let mut stream_extractor = YTStreamExtractor::new("8SfbFwMpsRw", downloader).await?;
+    let video_streams = stream_extractor.get_video_stream()?;
     println!("AUDIO/VIDEO STREAMS \n");
     println!("{:#?}", video_streams);
 
-    let audio_streams = stream_extractor.get_audio_streams().await?;
+    let audio_streams = stream_extractor.get_audio_streams()?;
     println!("AUDIO ONLY STREAMS \n");
     println!("{:#?}", audio_streams);
 
-    let video_only_streams = stream_extractor.get_video_only_stream().await?;
+    let video_only_streams = stream_extractor.get_video_only_stream()?;
     println!("VIDEO ONLY STREAMS \n");
     println!("{:#?}", video_only_streams);
 
     let thumbnails = stream_extractor.get_video_thumbnails();
     println!("\nTHUMBNAILS");
-    println!("{:#?}",thumbnails);
+    println!("{:#?}", thumbnails);
+
+    println!("\nMETADATA");
+    println!("title: {:#?}", stream_extractor.get_name());
+    println!(
+        "description:\n{:#?}",
+        stream_extractor.get_description(false)
+    );
+    println!("duration: {:#?}", stream_extractor.get_length());
+    println!("views: {:#?}", stream_extractor.get_view_count());
+    println!("likes: {:#?}", stream_extractor.get_like_count());
+    println!("dislikes: {:#?}", stream_extractor.get_dislike_count());
+    println!("uploader url: {:#?}", stream_extractor.get_uploader_url());
+    println!("uploader name: {:#?}", stream_extractor.get_uploader_name());
+    println!(
+        "uploader thumbnails:\n {:#?}",
+        stream_extractor.get_uploader_avatar_url()
+    );
+    // println!("is live : {:#?}",stream_extractor.is_live());
     Ok(())
 }
 
@@ -55,16 +73,23 @@ impl Downloader for DownloaderExample {
         Ok(String::from(body))
     }
 
-    async fn download_with_header(&self, url: &str, header: HashMap<String, String, RandomState>) -> Result<String, String> {
-        let client=reqwest::Client::new();
+    async fn download_with_header(
+        &self,
+        url: &str,
+        header: HashMap<String, String, RandomState>,
+    ) -> Result<String, String> {
+        let client = reqwest::Client::new();
         let res = client.get(url);
         let mut headers = reqwest::header::HeaderMap::new();
-        for header in header{
-            headers.insert(reqwest::header::HeaderName::from_str(&header.0).map_err(|e|e.to_string())?, header.1.parse().unwrap());
+        for header in header {
+            headers.insert(
+                reqwest::header::HeaderName::from_str(&header.0).map_err(|e| e.to_string())?,
+                header.1.parse().unwrap(),
+            );
         }
         let res = res.headers(headers);
-        let res = res.send().await.map_err(|er|er.to_string())?;
-        let body = res.text().await.map_err(|er|er.to_string())?;
+        let res = res.send().await.map_err(|er| er.to_string())?;
+        let body = res.text().await.map_err(|er| er.to_string())?;
         Ok(String::from(body))
     }
 }
