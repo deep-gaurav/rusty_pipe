@@ -14,7 +14,7 @@ pub struct YTSearchExtractor {
     pub doc: Html,
 }
 
-unsafe impl Sync for YTSearchItem<'_>{}
+unsafe impl Sync for YTSearchExtractor<'_>{}
 
 impl YTSearchExtractor {
 
