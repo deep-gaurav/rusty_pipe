@@ -15,6 +15,8 @@ pub struct YTSearchExtractor {
 }
 
 unsafe impl Sync for YTSearchExtractor{}
+unsafe impl Send for YTSearchExtractor{}
+
 
 impl YTSearchExtractor {
 
