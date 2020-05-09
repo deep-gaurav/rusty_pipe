@@ -2,6 +2,7 @@ use crate::youtube_extractor::channel_info_item_extractor::YTChannelInfoItemExtr
 use crate::youtube_extractor::playlist_info_item_extractor::YTPlaylistInfoItemExtractor;
 use crate::youtube_extractor::stream_info_item_extractor::YTStreamInfoItemExtractor;
 use scraper::{ElementRef, Html, Selector};
+use super::super::downloader_trait::Downloader;
 
 pub enum YTSearchItem<'a> {
     StreamInfoItem(YTStreamInfoItemExtractor<'a>),
@@ -13,6 +14,23 @@ pub struct YTSearchExtractor {
     pub doc: Html,
 }
 impl YTSearchExtractor {
+
+    pub async fn new<D:Downloader>(downloader:D,query:&str)->Result<YTSearchExtractor,String>{
+        let url = format!(
+            "https://www.youtube.com/results?disable_polymer=1&search_query={}",
+            query
+        );
+        let resp = downloader.download(&url).await?;
+        let doc = Html::parse_document(&resp);
+
+        Ok(
+            YTSearchExtractor{
+                doc
+            }
+        )
+
+    }
+
     pub fn get_search_suggestion(&self) -> Option<String> {
         let el = self
             .doc
@@ -69,4 +87,5 @@ impl YTSearchExtractor {
         }
         return search_items;
     }
+
 }

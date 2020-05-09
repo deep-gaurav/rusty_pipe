@@ -5,16 +5,14 @@ use scraper::Html;
 use std::io;
 
 use urlencoding::encode;
+use rusty_pipe::downloader_trait::Downloader;
+use std::collections::HashMap;
+use std::str::FromStr;
 
-fn main() {
-    static APP_USER_AGENT: &str =
-        "Mozilla/5.0 (X11; Linux x86_64; rv:68.0) Gecko/20100101 Firefox/43.0";
+use async_trait::async_trait;
 
-    let client: reqwest::blocking::Client = reqwest::blocking::Client::builder()
-        .user_agent(APP_USER_AGENT)
-        .build()
-        .expect("Cannot build client");
-
+#[tokio::main]
+async fn main() -> Result<(), String> {
     let mut search_query = String::new();
     println!("Enter Search Query");
     io::stdin()
@@ -23,20 +21,7 @@ fn main() {
 
     search_query = encode(&search_query);
 
-    let resp = client
-        .get(&format!(
-            "https://www.youtube.com/results?search_query={}",
-            search_query
-        ))
-        .send()
-        .expect("Cannot send");
-
-    assert!(resp.status().is_success());
-
-    let body = resp.text().unwrap();
-    let doc = Html::parse_document(&body);
-
-    let search_extractor = YTSearchExtractor { doc };
+    let search_extractor = YTSearchExtractor::new( DownloaderExample,&search_query).await?;
     let search_suggestion = search_extractor.get_search_suggestion();
 
     match search_suggestion {
@@ -158,5 +143,41 @@ fn main() {
                 println!();
             }
         }
+    }
+
+    Ok(())
+}
+
+struct DownloaderExample;
+
+#[async_trait]
+impl Downloader for DownloaderExample {
+    async fn download(&self, url: &str) -> Result<String, String> {
+        println!("query url : {}", url);
+        let resp = reqwest::get(url).await.map_err(|er| er.to_string())?;
+        println!("got response ");
+        let body = resp.text().await.map_err(|er| er.to_string())?;
+        println!("suceess query");
+        Ok(String::from(body))
+    }
+
+    async fn download_with_header(
+        &self,
+        url: &str,
+        header: HashMap<String, String>,
+    ) -> Result<String, String> {
+        let client = reqwest::Client::new();
+        let res = client.get(url);
+        let mut headers = reqwest::header::HeaderMap::new();
+        for header in header {
+            headers.insert(
+                reqwest::header::HeaderName::from_str(&header.0).map_err(|e| e.to_string())?,
+                header.1.parse().unwrap(),
+            );
+        }
+        let res = res.headers(headers);
+        let res = res.send().await.map_err(|er| er.to_string())?;
+        let body = res.text().await.map_err(|er| er.to_string())?;
+        Ok(String::from(body))
     }
 }
