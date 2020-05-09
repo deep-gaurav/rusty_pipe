@@ -3,6 +3,10 @@ use crate::youtube_extractor::playlist_info_item_extractor::YTPlaylistInfoItemEx
 use crate::youtube_extractor::stream_info_item_extractor::YTStreamInfoItemExtractor;
 use scraper::{ElementRef, Html, Selector};
 use super::super::downloader_trait::Downloader;
+use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
+
+/// https://url.spec.whatwg.org/#fragment-percent-encode-set
+const FRAGMENT: &AsciiSet = &CONTROLS.add(b' ').add(b'"').add(b'<').add(b'>').add(b'`');
 
 pub enum YTSearchItem<'a> {
     StreamInfoItem(YTStreamInfoItemExtractor<'a>),
@@ -21,6 +25,7 @@ unsafe impl Send for YTSearchExtractor{}
 impl YTSearchExtractor {
 
     pub async fn new<D:Downloader>(downloader:D,query:&str)->Result<YTSearchExtractor,String>{
+        let query = utf8_percent_encode(query,FRAGMENT).to_string();
         let url = format!(
             "https://www.youtube.com/results?disable_polymer=1&search_query={}",
             query
