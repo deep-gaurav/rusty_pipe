@@ -13,6 +13,9 @@ pub enum YTSearchItem<'a> {
 pub struct YTSearchExtractor {
     pub doc: Html,
 }
+
+unsafe impl Sync for YTSearchItem<'_>{}
+
 impl YTSearchExtractor {
 
     pub async fn new<D:Downloader>(downloader:D,query:&str)->Result<YTSearchExtractor,String>{
