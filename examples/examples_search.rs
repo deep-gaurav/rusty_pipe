@@ -10,9 +10,11 @@ use std::collections::HashMap;
 use std::str::FromStr;
 
 use async_trait::async_trait;
+use failure::Error;
+use rusty_pipe::youtube_extractor::error::ParsingError;
 
 #[tokio::main]
-async fn main() -> Result<(), String> {
+async fn main() -> Result<(), Error> {
     let mut search_query = String::new();
     println!("Enter Search Query");
     io::stdin()
@@ -24,11 +26,8 @@ async fn main() -> Result<(), String> {
     let search_extractor = YTSearchExtractor::new( DownloaderExample,&search_query).await?;
     let search_suggestion = search_extractor.get_search_suggestion();
 
-    match search_suggestion {
-        None => println!("No search Suggestion"),
-        Some(str) => println!("Search Suggestion {}", str),
-    }
-    let items = search_extractor.collect_items();
+    println!("Search suggestion {:#?}",search_suggestion);
+    let items = search_extractor.collect_items()?;
     println!("Items Found {}", items.len());
     println!();
 
@@ -40,18 +39,16 @@ async fn main() -> Result<(), String> {
                     "title : {}",
                     streaminfoitem.get_name().expect("Stream has no title")
                 );
+                println!("id: {:#?}",streaminfoitem.video_id());
                 println!(
                     "URL : {}",
                     streaminfoitem.get_url().expect("Stream has no url")
                 );
-                println!("isLive: {}", streaminfoitem.is_live());
-                match streaminfoitem.get_duration() {
-                    None => println!("Duration: Unknown"),
-                    Some(d) => println!("Duration: {}s", d),
-                }
+                println!("isLive: {:#?}", streaminfoitem.is_live());
+                println!("Duration: {:#?}",streaminfoitem.get_duration());
                 println!(
-                    "Uploader: {}",
-                    streaminfoitem.get_uploader_name().unwrap_or("Unknown")
+                    "Uploader: {:#?}",
+                    streaminfoitem.get_uploader_name().unwrap_or("Unknown".to_string())
                 );
                 println!(
                     "Uploader Url: {}",
@@ -60,22 +57,18 @@ async fn main() -> Result<(), String> {
                         .unwrap_or("Unknown".to_owned())
                 );
                 println!(
-                    "Upload Date: {}",
+                    "Upload Date: {:#?}",
                     streaminfoitem
                         .get_textual_upload_date()
-                        .unwrap_or("Unknown")
                 );
                 println!(
-                    "View Count: {}",
+                    "View Count: {:#?}",
                     streaminfoitem
                         .get_view_count()
-                        .map_or("Unknown".to_owned(), |c| c.to_string())
                 );
                 println!(
-                    "Thumbnail Url: {}",
-                    streaminfoitem
-                        .get_thumbnail_url()
-                        .unwrap_or("Unknown".to_owned())
+                    "Thumbnails:\n {:#?}",
+                    streaminfoitem.get_thumbnails()
                 );
 
                 println!();
@@ -84,25 +77,24 @@ async fn main() -> Result<(), String> {
                 println!("Channel");
                 println!(
                     "Name : {}",
-                    channel_info_item.get_name().unwrap_or("Unknown")
+                    channel_info_item.get_name().unwrap_or("Unknown".to_string())
                 );
                 println!(
                     "Url : {}",
                     channel_info_item.get_url().unwrap_or("Unknown".to_owned())
                 );
                 println!(
-                    "Thumbnail Url : {}",
-                    channel_info_item.get_thumbnail_url().unwrap_or("Unknown")
+                    "Thumbnails \n{:#?}",
+                    channel_info_item.get_thumbnails()
                 );
                 println!(
-                    "Subscriber's count : {}",
+                    "Subscriber's count : {:#?}",
                     channel_info_item
                         .get_subscriber_count()
-                        .map_or("Unknown".to_owned(), |c| c.to_string())
                 );
                 println!(
-                    "Description : {}",
-                    channel_info_item.get_description().unwrap_or("Unknown")
+                    "Description : {:#?}",
+                    channel_info_item.get_description()
                 );
                 println!(
                     "Stream Count : {}",
@@ -126,18 +118,17 @@ async fn main() -> Result<(), String> {
                     playlist_info_item.get_url().unwrap_or("Unknown".to_owned())
                 );
                 println!(
-                    "Thumbnail Url : {}",
-                    playlist_info_item.get_thumbnail_url().unwrap_or("Unknown")
+                    "Thumbnails \n{:#?}",
+                    playlist_info_item.get_thumbnails()
                 );
                 println!(
                     "Uploader Name : {}",
-                    playlist_info_item.get_uploader_name().unwrap_or("Unknown")
+                    playlist_info_item.get_uploader_name().unwrap_or("Unknown".to_string())
                 );
                 println!(
-                    "Stream Count : {}",
+                    "Stream Count : {:#?}",
                     playlist_info_item
                         .get_stream_count()
-                        .map_or("Unknown".to_owned(), |d| d.to_string())
                 );
 
                 println!();
@@ -152,11 +143,19 @@ struct DownloaderExample;
 
 #[async_trait]
 impl Downloader for DownloaderExample {
-    async fn download(&self, url: &str) -> Result<String, String> {
+    async fn download(&self, url: &str) -> Result<String, ParsingError> {
         println!("query url : {}", url);
-        let resp = reqwest::get(url).await.map_err(|er| er.to_string())?;
+        let resp = reqwest::get(url).await.map_err(
+            |er| ParsingError::DownloadError {
+                cause:er.to_string()
+            }
+        )?;
         println!("got response ");
-        let body = resp.text().await.map_err(|er| er.to_string())?;
+        let body = resp.text().await.map_err(
+            |er| ParsingError::DownloadError {
+                cause:er.to_string()
+            }
+        )?;
         println!("suceess query");
         Ok(String::from(body))
     }
@@ -165,7 +164,7 @@ impl Downloader for DownloaderExample {
         &self,
         url: &str,
         header: HashMap<String, String>,
-    ) -> Result<String, String> {
+    ) -> Result<String, ParsingError> {
         let client = reqwest::Client::new();
         let res = client.get(url);
         let mut headers = reqwest::header::HeaderMap::new();

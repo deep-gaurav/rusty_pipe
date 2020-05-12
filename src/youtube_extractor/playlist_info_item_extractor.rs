@@ -1,68 +1,79 @@
 use crate::utils::utils::remove_non_digit_chars;
 use scraper::{ElementRef, Selector};
+use serde_json::{Value, Map};
+use crate::youtube_extractor::stream_extractor::Thumbnail;
+use crate::youtube_extractor::error::ParsingError;
+use crate::utils::utils::*;
 
-pub struct YTPlaylistInfoItemExtractor<'a> {
-    pub el: ElementRef<'a>,
+pub struct YTPlaylistInfoItemExtractor {
+    pub playlist_info:Map<String,Value>,
 }
 
-impl YTPlaylistInfoItemExtractor<'_> {
-    pub fn get_thumbnail_url(&self) -> Option<&str> {
-        let te = self
-            .el
-            .select(&Selector::parse("div.yt-thumb.video-thumb img").unwrap())
-            .next()?;
-        let mut url = te.value().attr("src");
-        if let Some(url2) = url {
-            if url2.contains(".gif") {
-                url = te.value().attr("data-thumb");
+impl YTPlaylistInfoItemExtractor {
+    pub fn get_thumbnails(&self) -> Result<Vec<Thumbnail>,ParsingError> {
+        let mut thumbnails = vec![];
+        for thumb in self.playlist_info
+            .get("thumbnails").ok_or("no thumbnails")?.as_array().ok_or("thumbnails array")?{
+            for thumb in thumb.get("thumbnails").ok_or("no nested thumbnails")?.as_array().ok_or("thumbnails array")?{
+
+                if let Ok(thumb) = serde_json::from_value(thumb.to_owned()){
+                    thumbnails.push(thumb)
+                }
             }
         }
-        url
+        Ok(thumbnails)
     }
 
-    pub fn get_name(&self) -> Option<String> {
-        let title = self
-            .el
-            .select(&Selector::parse(".yt-lockup-title a").unwrap())
-            .next()?;
-        Some(title.text().collect::<Vec<_>>().join(""))
-    }
-
-    fn get_premium_url(&self) -> Option<&str> {
-        let a = self
-            .el
-            .select(&Selector::parse("div.yt-lockup-meta  ul.yt-lockup-meta-info li a").unwrap())
-            .next()?;
-        a.value().attr("href")
-    }
-
-    pub fn get_url(&self) -> Option<String> {
-        let mut url = self.get_premium_url();
-        if url.is_none() {
-            url = self
-                .el
-                .select(&Selector::parse("h3.yt-lockup-title a").unwrap())
-                .next()?
-                .value()
-                .attr("href");
+    pub fn get_name(&self) -> Result<String,ParsingError> {
+        if let Some(title)=self.playlist_info.get("title"){
+            let name = get_text_from_object(title,false)?;
+            if let Some(name)= name{
+                if !name.is_empty(){
+                    return Ok(
+                        name
+                    );
+                }
+            }
         }
-        Some(super::fix_url(url?))
+        Err(ParsingError::from("Cannot get name"))
     }
 
-    pub fn get_uploader_name(&self) -> Option<&str> {
-        let div = self
-            .el
-            .select(&Selector::parse("div.yt-lockup-byline a").unwrap())
-            .next()?;
-        div.text().next()
+    pub fn playlist_id(&self) -> Result<String,ParsingError>{
+        let playlist_id  = self.playlist_info.get("playlistId").ok_or("Cant get playlist id")?.as_str().ok_or("Cant get playlist id")?;
+        Ok(playlist_id.to_string())
     }
 
-    pub fn get_stream_count(&self) -> Option<u32> {
-        let count = self
-            .el
-            .select(&Selector::parse("span.formatted-video-count-label b").unwrap())
-            .next()?;
-        let count_no = remove_non_digit_chars::<u32>(count.text().next()?);
-        count_no.ok()
+    pub fn get_url(&self) -> Result<String,ParsingError> {
+        Ok(
+            format!("https://www.youtube.com/playlist?list={}",self.playlist_id()?)
+        )
     }
+
+    pub fn get_uploader_name(&self) -> Result<String,ParsingError> {
+        match get_text_from_object(self.playlist_info.get("longBylineText").unwrap_or(&Value::Null),false){
+            Ok(uploader) => {
+                Ok(
+                    uploader.unwrap_or_default()
+                )
+            },
+            Err(err) => {
+                Err(err)
+            }
+        }
+    }
+
+    pub fn get_stream_count(&self) -> Result<i32,ParsingError> {
+        match get_text_from_object(self.playlist_info.get("videoCount").unwrap_or(&Value::Null),false){
+            Ok(videos) => {
+                // println!("video count {:#?}",videos);
+                Ok(
+                    remove_non_digit_chars::<i32>(&videos.unwrap_or_default()).map_err(|e|ParsingError::from(e.to_string()))?
+                )
+            },
+            Err(err) => {
+                Err(err)
+            }
+        }
+    }
+
 }

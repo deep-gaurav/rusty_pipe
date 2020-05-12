@@ -1,171 +1,231 @@
 use scraper::{ElementRef, Selector};
 use std::convert::TryInto;
+use serde_json::{Map, Value};
+use crate::youtube_extractor::error::ParsingError;
+use crate::utils::utils::*;
+use crate::youtube_extractor::stream_extractor::Thumbnail;
 
-pub struct YTStreamInfoItemExtractor<'a> {
-    pub item: ElementRef<'a>,
+pub struct YTStreamInfoItemExtractor {
+    pub video_info:Map<String,Value>,
 }
-impl YTStreamInfoItemExtractor<'_> {
-    pub fn get_name(&self) -> Option<&str> {
-        let dl = self.item.select(&Selector::parse("h3").unwrap()).next()?;
-        Some(dl.text().next()?)
+impl YTStreamInfoItemExtractor {
+    pub fn get_name(&self) -> Result<String,ParsingError> {
+        if let Some(title)=self.video_info.get("title"){
+            let name = get_text_from_object(title,false)?;
+            if let Some(name)= name{
+                if !name.is_empty(){
+                    return Ok(
+                        name
+                    );
+                }
+            }
+        }
+        Err(ParsingError::from("Cannot get name"))
     }
 
-    pub fn is_ad(&self) -> bool {
-        self.item
-            .select(&Selector::parse("span[class*=\"icon-not-available\"]").unwrap())
-            .next()
-            .is_some()
-            || self
-                .item
-                .select(&Selector::parse("span[class*=\"yt-badge-ad\"]").unwrap())
-                .next()
-                .is_some()
-            || self.is_premium_video()
+    pub fn is_ad(&self) -> Result<bool,ParsingError> {
+        Ok(
+            self.is_premium_video()?
+                ||
+            self.get_name()?=="[Private video]"
+                ||
+            self.get_name()?=="[Deleted video]"
+        )
     }
 
-    pub fn is_premium_video(&self) -> bool {
-        let premium_span = self
-            .item
-            .select(
-                &Selector::parse("span[class=\"standalone-collection-badge-renderer-red-text\"]")
-                    .unwrap(),
+    pub fn video_id(&self)->Result<String,ParsingError>{
+        Ok(
+            self.video_info.get("videoId")
+                .ok_or("video id not found")?
+                .as_str().ok_or("videoid not string")?
+                .to_string()
+        )
+    }
+
+    pub fn is_premium_video(&self) -> Result<bool,ParsingError> {
+        let badges = self.video_info.get("badges")
+            .unwrap_or(&Value::Null)
+            .as_array();
+        if let Some(badges)=badges{
+            for badge in badges{
+                if badge.get("metadataBadgeRenderer")
+                    .ok_or("metadataBadgeRenderer not found")?
+                    .get("label")
+                    .unwrap_or(&Value::Null)
+                    .as_str()
+                    .unwrap_or("")
+                    =="Premium"{
+                    return Ok(true);
+                }
+            }
+        }
+        Ok(false)
+    }
+
+    pub fn get_url(&self) -> Result<String,ParsingError> {
+        let id = self.video_id()?;
+        Ok(
+            format!("https://www.youtube.com/watch?v={}",id)
+        )
+    }
+
+    pub fn is_live(&self) -> Result<bool,ParsingError> {
+        let badges = self.video_info.get("badges")
+            .unwrap_or(&Value::Null)
+            .as_array();
+
+        if let Some(badges)=badges{
+            for badge in badges{
+                if badge.get("metadataBadgeRenderer")
+                    .ok_or("metadataBadgeRenderer not found")?
+                    .get("label")
+                    .unwrap_or(&Value::Null)
+                    .as_str()
+                    .unwrap_or("")
+                    =="LIVE NOW"{
+                    return Ok(true);
+                }
+            }
+        }
+
+        let style = self.video_info.get("thumbnailOverlays").unwrap_or(&Value::Null)
+            .get(0).unwrap_or(&Value::Null)
+            .get("thumbnailOverlayTimeStatusRenderer")
+            .unwrap_or(&Value::Null)
+            .get("style").unwrap_or(&Value::Null)
+            .as_str().unwrap_or("");
+        if style.eq_ignore_ascii_case("LIVE"){
+            return Ok(true)
+        }
+
+        Ok(false)
+    }
+
+    pub fn get_duration(&self) -> Result<i32,ParsingError> {
+        if self.is_live()? {
+            return Ok(-1);
+        }
+        let mut duration = get_text_from_object(
+            self.video_info.get("lengthText").ok_or("Cant get lengthText")?,
+            false
+        )?;
+        if duration.is_none() || duration.clone().unwrap_or_default().is_empty(){
+            for thumbnail_overlay in self.video_info.get("thumbnailOverlays").unwrap_or(&Value::Null).as_array().unwrap_or(&vec![]){
+                if let Some(tr_renderer)=thumbnail_overlay.get("thumbnailOverlayTimeStatusRenderer"){
+                    duration = get_text_from_object(
+                        tr_renderer.get("text").unwrap_or(&Value::Null),
+                        false
+                    )?;
+                }
+            }
+        }
+        if duration.is_none() || duration.clone().unwrap_or_default().is_empty(){
+            Err(ParsingError::from("Cant get duration"))
+        }else{
+            Ok(
+                remove_non_digit_chars::<i32>(&duration.unwrap_or_default()).map_err(|f|ParsingError::from(f.to_string()))?
             )
-            .next();
-
-        match premium_span {
-            None => false,
-            Some(premium_span) => premium_span.text().next().is_none(),
         }
     }
 
-    pub fn get_url(&self) -> Option<String> {
-        let dl = self
-            .item
-            .select(&Selector::parse("h3").unwrap())
-            .next()?
-            .select(&Selector::parse("a").unwrap())
-            .next()?;
-        Some(super::fix_url(dl.value().attr("href")?))
-    }
+    pub fn get_uploader_name(&self) -> Result<String,ParsingError> {
+        let mut name = get_text_from_object(
+            self.video_info.get("longBylineText").unwrap_or(&Value::Null),
+            false
+        )?.unwrap_or_default();
+        if name.is_empty(){
+            name = get_text_from_object(
+                self.video_info.get("ownerText").unwrap_or(&Value::Null),
+                false
+            )?.unwrap_or_default();
 
-    pub fn is_live(&self) -> bool {
-        self.item
-            .select(&Selector::parse("span[class*=\"yt-badge-live\"]").unwrap())
-            .next()
-            .is_some()
-            || self
-                .item
-                .select(&Selector::parse("span[class*=\"video-time-overlay-live\"]").unwrap())
-                .next()
-                .is_some()
-    }
+            if name.is_empty(){
+                name = get_text_from_object(
+                    self.video_info.get("shortBylineText").unwrap_or(&Value::Null),
+                    false
+                )?.unwrap_or_default();
 
-    pub fn get_duration(&self) -> Option<u64> {
-        if self.is_live() {
-            return None;
-        }
-        let el = self
-            .item
-            .select(&Selector::parse("span[class*=\"video-time\"]").unwrap())
-            .next()?;
-        let duration_text = el.text().next()?;
-        let mut splits: Vec<&str> = duration_text.split(":").collect();
-        splits.reverse();
-        let mut seconds: u64 = 0;
-        for i in 0..splits.len() {
-            seconds += splits[i].parse::<u64>().unwrap() * 60_u64.pow(i.try_into().unwrap());
-        }
-        return Some(seconds);
-    }
-
-    pub fn get_uploader_name(&self) -> Option<&str> {
-        let el = self
-            .item
-            .select(&Selector::parse("div[class*=\"yt-lockup-byline\"] a").unwrap())
-            .next()?;
-        //        let el = el.select(&Selector::parse("a").unwrap()).next()?;
-        Some(el.text().next()?)
-    }
-
-    pub fn get_channel_url(&self) -> Option<String> {
-        let el = self
-            .item
-            .select(&Selector::parse("div[class*=\"yt-lockup-byline\"] a").unwrap())
-            .next()?;
-        Some(super::fix_url(el.value().attr("href")?))
-    }
-
-    pub fn get_uploader_url(&self) -> Option<String> {
-        self.get_channel_url()
-    }
-
-    pub fn get_textual_upload_date(&self) -> Option<&str> {
-        if self.is_live() {
-            return None;
-        }
-        let el = self
-            .item
-            .select(&Selector::parse("div[class*=\"yt-lockup-meta\"] li").unwrap())
-            .next()?;
-        el.text().next()
-    }
-
-    pub fn get_view_count(&self) -> Option<u32> {
-        let input: Option<&str>;
-        let span_view_count = self
-            .item
-            .select(&Selector::parse("span.view-count").unwrap())
-            .next();
-        if let Some(span_view_count) = span_view_count {
-            input = span_view_count.text().next();
-        } else if self.is_live() {
-            let meta = self
-                .item
-                .select(&Selector::parse("ul.yt-lockup-meta-info").unwrap())
-                .next()?;
-            input = meta
-                .select(&Selector::parse("li").unwrap())
-                .next()?
-                .text()
-                .next()
-        } else {
-            let meta = self
-                .item
-                .select(&Selector::parse("div.yt-lockup-meta").unwrap())
-                .next()?;
-            let lis = meta
-                .select(&Selector::parse("li").unwrap())
-                .collect::<Vec<_>>();
-            if lis.len() < 2 {
-                return None;
-            }
-            input = lis[1].text().next();
-        }
-
-        if let Some(input) = input {
-            let count = super::super::utils::utils::remove_non_digit_chars(input)
-                .expect("Cannot parse to u32");
-            return Some(count);
-        } else {
-            return None;
-        }
-    }
-
-    pub fn get_thumbnail_url(&self) -> Option<String> {
-        let mut url: Option<&str>;
-
-        let te = self
-            .item
-            .select(&Selector::parse("div.yt-thumb.video-thumb img").unwrap())
-            .next()?;
-
-        url = te.value().attr("src");
-
-        if let Some(url_t) = url {
-            if url_t.contains(".gif") {
-                url = te.value().attr("data-thumb");
+                if name.is_empty(){
+                    return Err(ParsingError::from("Cant get uploader name"));
+                }
             }
         }
-        Some(super::fix_url(url?))
+
+        Ok(name)
+    }
+
+    pub fn get_uploader_url(&self) -> Result<String,ParsingError> {
+        let mut url = get_url_from_navigation_endpoint(
+            self.video_info.get("longBylineText").unwrap_or(&Value::Null)
+                .get("runs").unwrap_or(&Value::Null)
+                .get(0).unwrap_or(&Value::Null)
+                .get("navigationEndpoint").unwrap_or(&Value::Null)
+        );
+        if url.is_err() || url.clone().unwrap_or_default().is_empty(){
+            url = get_url_from_navigation_endpoint(
+                self.video_info.get("ownerText").unwrap_or(&Value::Null)
+                    .get("runs").unwrap_or(&Value::Null)
+                    .get(0).unwrap_or(&Value::Null)
+                    .get("navigationEndpoint").unwrap_or(&Value::Null)
+            );
+            if url.is_err() || url.clone().unwrap_or_default().is_empty(){
+                url = get_url_from_navigation_endpoint(
+                    self.video_info.get("shortBylineText").unwrap_or(&Value::Null)
+                        .get("runs").unwrap_or(&Value::Null)
+                        .get(0).unwrap_or(&Value::Null)
+                        .get("navigationEndpoint").unwrap_or(&Value::Null)
+                );
+
+                if url.is_err() || url.clone().unwrap_or_default().is_empty(){
+                    return Err(ParsingError::from("Cant get uploader url"));
+                }
+            }
+        }
+        url
+    }
+
+    pub fn get_textual_upload_date(&self) -> Result<String,ParsingError> {
+        if self.is_live()? {
+            return Err(ParsingError::from("live video has no upload date"));
+        }
+        let pt = get_text_from_object(
+            self.video_info.get("publishedTimeText").unwrap_or(&Value::Null),
+            false
+        )?;
+        Ok(
+            pt.ok_or("Cant get upload date")?
+        )
+    }
+
+    pub fn get_view_count(&self) -> Result<i32,ParsingError> {
+        if self.is_premium_video()? || self.video_info.contains_key("topStandaloneBadge"){
+            return Ok(-1);
+        }
+        if let Some(viewc) = self.video_info.get("viewCountText"){
+            let view_count = get_text_from_object(viewc,false)?.unwrap_or_default();
+            if view_count.to_ascii_lowercase().contains("no views"){
+                return Ok(0);
+            } else if view_count.to_ascii_lowercase().contains("recommended"){
+                return Ok(-1);
+            }else{
+                return Ok(
+                    remove_non_digit_chars::<i32>(&view_count).map_err(|er|ParsingError::from(er.to_string()))?
+                )
+            }
+        }
+
+        Err(ParsingError::from("Cant get view count"))
+    }
+
+    pub fn get_thumbnails(&self) -> Result<Vec<Thumbnail>,ParsingError> {
+        let mut thumbnails = vec![];
+        for thumb in self.video_info.get("thumbnail").ok_or("No thumbnail")?
+            .get("thumbnails").ok_or("no thumbnails")?.as_array().ok_or("thumbnails array")?{
+            // println!("{:#?}",thumb);
+            if let Ok(thumb) = serde_json::from_value(thumb.to_owned()){
+                thumbnails.push(thumb)
+            }
+        }
+        Ok(thumbnails)
     }
 }

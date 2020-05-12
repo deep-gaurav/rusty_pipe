@@ -1,11 +1,40 @@
 use serde_json::Value;
 use std::collections::hash_map::HashMap;
+use crate::youtube_extractor::error::ParsingError;
 
 pub fn remove_non_digit_chars<T: std::str::FromStr>(input: &str) -> Result<T, T::Err> {
     let re = regex::Regex::new("\\D+").unwrap();
     let onlydigits = re.replace_all(input, "");
     let count = onlydigits.parse::<T>();
     count
+}
+
+pub fn mixed_number_word_parse(input: &str) -> Result<i32,ParsingError>{
+
+    // println!("input string to parse: {}",input);
+    let re = regex::Regex::new(r##"[\d]+([\.,][\d]+)?([KMBkmb])+"##).expect("regex incrorrect");
+    let mut multiplier= String::new();
+    if let Some(cap)= re.captures(input){
+        if let Some(grp)= cap.get(2){
+            multiplier = grp.as_str().to_string();
+        }
+    }
+    let mut count_str = String::new();
+    let re1 = regex::Regex::new(r##"([\d]+([\.,][\d]+)?)"##).expect("Regex incorrect");
+    if let Some(cap) = re1.captures(input){
+        if let Some(grp) = cap.get(0){
+            count_str = grp.as_str().replace(",",".");
+        }
+    }
+    let mut count = count_str.parse::<f32>().map_err(|e|ParsingError::from(format!("{:#?},count_str = {}",e,count_str)))?;
+    match multiplier.to_uppercase().as_str(){
+        "K" => count=count*1000_f32,
+        "M" => count=count*1000_f32*1000_f32,
+        "B" => count=count*1000_f32*1000_f32*1000_f32,
+        _ => count=count
+    }
+    Ok(count as i32)
+
 }
 
 pub fn compat_parse_map(input: &str) -> HashMap<String, String> {
@@ -40,7 +69,7 @@ pub fn fix_thumbnail_url(url: &str) -> String {
     }
 }
 
-pub fn get_url_from_navigation_endpoint(navigation_endpoint: &Value) -> Result<String, String> {
+pub fn get_url_from_navigation_endpoint(navigation_endpoint: &Value) -> Result<String, ParsingError> {
     if let Some(intern_url) = navigation_endpoint
         .get("urlEndpoint")
         .and_then(|ue| ue.get("url"))
@@ -84,7 +113,7 @@ pub fn get_url_from_navigation_endpoint(navigation_endpoint: &Value) -> Result<S
                 return Ok(format!("https://www.youtube.com{}", base_url));
             }
         }
-        return Err("Canonical base url is none, browse id is not channel".to_string());
+        return Err(ParsingError::parsing_error_from_str("Canonical base url is none, browse id is not channel"));
     } else if let Some(watch_endpoint) = navigation_endpoint.get("watchEndpoint") {
         let mut url = format!(
             "https://www.youtube.com/watch?v={}",
@@ -115,7 +144,7 @@ pub fn get_url_from_navigation_endpoint(navigation_endpoint: &Value) -> Result<S
     Ok("".to_string())
 }
 
-pub fn get_text_from_object(text_object: &Value, html: bool) -> Result<Option<String>, String> {
+pub fn get_text_from_object(text_object: &Value, html: bool) -> Result<Option<String>, ParsingError> {
     if let Some(simple_text) = text_object.get("simpleText") {
         return Ok(Some(
             simple_text
