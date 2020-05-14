@@ -1,7 +1,7 @@
-use async_trait::async_trait;
-use std::collections::HashMap;
-use failure::Error;
 use crate::youtube_extractor::error::ParsingError;
+use async_trait::async_trait;
+use failure::Error;
+use std::collections::HashMap;
 
 #[async_trait]
 pub trait Downloader {

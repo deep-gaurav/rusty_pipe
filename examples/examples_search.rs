@@ -4,10 +4,10 @@ use rusty_pipe::youtube_extractor::search_extractor::*;
 use scraper::Html;
 use std::io;
 
-use urlencoding::encode;
 use rusty_pipe::downloader_trait::Downloader;
 use std::collections::HashMap;
 use std::str::FromStr;
+use urlencoding::encode;
 
 use async_trait::async_trait;
 use failure::Error;
@@ -23,10 +23,10 @@ async fn main() -> Result<(), Error> {
 
     search_query = encode(&search_query);
 
-    let search_extractor = YTSearchExtractor::new( DownloaderExample,&search_query).await?;
+    let search_extractor = YTSearchExtractor::new(DownloaderExample, &search_query).await?;
     let search_suggestion = search_extractor.get_search_suggestion();
 
-    println!("Search suggestion {:#?}",search_suggestion);
+    println!("Search suggestion {:#?}", search_suggestion);
     let items = search_extractor.collect_items()?;
     println!("Items Found {}", items.len());
     println!();
@@ -39,16 +39,18 @@ async fn main() -> Result<(), Error> {
                     "title : {}",
                     streaminfoitem.get_name().expect("Stream has no title")
                 );
-                println!("id: {:#?}",streaminfoitem.video_id());
+                println!("id: {:#?}", streaminfoitem.video_id());
                 println!(
                     "URL : {}",
                     streaminfoitem.get_url().expect("Stream has no url")
                 );
                 println!("isLive: {:#?}", streaminfoitem.is_live());
-                println!("Duration: {:#?}",streaminfoitem.get_duration());
+                println!("Duration: {:#?}", streaminfoitem.get_duration());
                 println!(
                     "Uploader: {:#?}",
-                    streaminfoitem.get_uploader_name().unwrap_or("Unknown".to_string())
+                    streaminfoitem
+                        .get_uploader_name()
+                        .unwrap_or("Unknown".to_string())
                 );
                 println!(
                     "Uploader Url: {}",
@@ -58,18 +60,10 @@ async fn main() -> Result<(), Error> {
                 );
                 println!(
                     "Upload Date: {:#?}",
-                    streaminfoitem
-                        .get_textual_upload_date()
+                    streaminfoitem.get_textual_upload_date()
                 );
-                println!(
-                    "View Count: {:#?}",
-                    streaminfoitem
-                        .get_view_count()
-                );
-                println!(
-                    "Thumbnails:\n {:#?}",
-                    streaminfoitem.get_thumbnails()
-                );
+                println!("View Count: {:#?}", streaminfoitem.get_view_count());
+                println!("Thumbnails:\n {:#?}", streaminfoitem.get_thumbnails());
 
                 println!();
             }
@@ -77,25 +71,21 @@ async fn main() -> Result<(), Error> {
                 println!("Channel");
                 println!(
                     "Name : {}",
-                    channel_info_item.get_name().unwrap_or("Unknown".to_string())
+                    channel_info_item
+                        .get_name()
+                        .unwrap_or("Unknown".to_string())
                 );
+                println!("Channel Id : {:#?}", channel_info_item.channel_id());
                 println!(
                     "Url : {}",
                     channel_info_item.get_url().unwrap_or("Unknown".to_owned())
                 );
-                println!(
-                    "Thumbnails \n{:#?}",
-                    channel_info_item.get_thumbnails()
-                );
+                println!("Thumbnails \n{:#?}", channel_info_item.get_thumbnails());
                 println!(
                     "Subscriber's count : {:#?}",
-                    channel_info_item
-                        .get_subscriber_count()
+                    channel_info_item.get_subscriber_count()
                 );
-                println!(
-                    "Description : {:#?}",
-                    channel_info_item.get_description()
-                );
+                println!("Description : {:#?}", channel_info_item.get_description());
                 println!(
                     "Stream Count : {}",
                     channel_info_item
@@ -117,18 +107,16 @@ async fn main() -> Result<(), Error> {
                     "Url : {}",
                     playlist_info_item.get_url().unwrap_or("Unknown".to_owned())
                 );
-                println!(
-                    "Thumbnails \n{:#?}",
-                    playlist_info_item.get_thumbnails()
-                );
+                println!("Thumbnails \n{:#?}", playlist_info_item.get_thumbnails());
                 println!(
                     "Uploader Name : {}",
-                    playlist_info_item.get_uploader_name().unwrap_or("Unknown".to_string())
+                    playlist_info_item
+                        .get_uploader_name()
+                        .unwrap_or("Unknown".to_string())
                 );
                 println!(
                     "Stream Count : {:#?}",
-                    playlist_info_item
-                        .get_stream_count()
+                    playlist_info_item.get_stream_count()
                 );
 
                 println!();
@@ -145,17 +133,18 @@ struct DownloaderExample;
 impl Downloader for DownloaderExample {
     async fn download(&self, url: &str) -> Result<String, ParsingError> {
         println!("query url : {}", url);
-        let resp = reqwest::get(url).await.map_err(
-            |er| ParsingError::DownloadError {
-                cause:er.to_string()
-            }
-        )?;
+        let resp = reqwest::get(url)
+            .await
+            .map_err(|er| ParsingError::DownloadError {
+                cause: er.to_string(),
+            })?;
         println!("got response ");
-        let body = resp.text().await.map_err(
-            |er| ParsingError::DownloadError {
-                cause:er.to_string()
-            }
-        )?;
+        let body = resp
+            .text()
+            .await
+            .map_err(|er| ParsingError::DownloadError {
+                cause: er.to_string(),
+            })?;
         println!("suceess query");
         Ok(String::from(body))
     }

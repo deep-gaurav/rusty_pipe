@@ -1,11 +1,12 @@
 pub mod channel_extractor;
 pub mod channel_info_item_extractor;
+pub mod error;
 pub mod itag_item;
+pub mod playlist_extractor;
 pub mod playlist_info_item_extractor;
 pub mod search_extractor;
 pub mod stream_extractor;
 pub mod stream_info_item_extractor;
-pub mod error;
 
 static YOUTUBE_BASE_URL: &str = "https://www.youtube.com";
 

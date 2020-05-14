@@ -6,9 +6,9 @@ use std::collections::HashMap;
 
 use super::super::utils::utils::*;
 use super::itag_item::{Itag, ItagType};
-use std::future::Future;
-use failure::Error;
 use crate::youtube_extractor::error::ParsingError;
+use failure::Error;
+use std::future::Future;
 
 const CONTENT: &str = "content";
 
@@ -84,16 +84,13 @@ impl<D: Downloader> YTStreamExtractor<D> {
         let initial_data = YTStreamExtractor::<D>::get_initial_data(&url, &downloader);
         let (doc, initial_data) = try_join!(doc, initial_data)?;
         if initial_data.1 {
-            return Err(
-                ParsingError::AgeRestricted
-            );
+            return Err(ParsingError::AgeRestricted);
         }
         let initial_data = initial_data.0;
         let primary_info_renderer =
             YTStreamExtractor::<D>::get_primary_info_renderer(&initial_data)?;
         let secondary_info_renderer =
             YTStreamExtractor::<D>::get_secondary_info_renderer(&initial_data)?;
-
 
         let player_config = YTStreamExtractor::<D>::get_player_config(&doc)
             .ok_or("cannot get player_config".to_string())?;
@@ -166,28 +163,26 @@ impl<D: Downloader> YTStreamExtractor<D> {
                             }
                         };
                         match serde_json::from_value::<StreamItem>(format_data.clone()) {
-                            Ok(stream_item) => {
-                                match itag_type_wanted{
-                                    ItagType::VideoOnly=>{
-                                        if stream_item.audioQuality.is_none(){
-                                            url_and_itags.insert(stream_url, stream_item);
-                                        }
-                                    }
-                                    ItagType::Audio=>{
-                                        if stream_item.height.is_none(){
-                                            url_and_itags.insert(stream_url, stream_item);
-                                        }
-                                    }
-                                    _=>{
+                            Ok(stream_item) => match itag_type_wanted {
+                                ItagType::VideoOnly => {
+                                    if stream_item.audioQuality.is_none() {
                                         url_and_itags.insert(stream_url, stream_item);
                                     }
                                 }
-                            }
-                            Err(err) => return Err(
-                                ParsingError::ParsingError {
-                                    cause:err.to_string()
+                                ItagType::Audio => {
+                                    if stream_item.height.is_none() {
+                                        url_and_itags.insert(stream_url, stream_item);
+                                    }
                                 }
-                            ),
+                                _ => {
+                                    url_and_itags.insert(stream_url, stream_item);
+                                }
+                            },
+                            Err(err) => {
+                                return Err(ParsingError::ParsingError {
+                                    cause: err.to_string(),
+                                })
+                            }
                         }
                     // url_and_itags.insert(stream_url, itag_item);
                     } else {
@@ -198,11 +193,9 @@ impl<D: Downloader> YTStreamExtractor<D> {
                 return Ok(url_and_itags);
             }
         } else {
-            return Err(
-                ParsingError::ParsingError {
-                    cause:"Streaming data not found in player response".to_string()
-                }
-            );
+            return Err(ParsingError::ParsingError {
+                cause: "Streaming data not found in player response".to_string(),
+            });
         }
 
         Ok(url_and_itags)
@@ -302,26 +295,20 @@ impl<D: Downloader> YTStreamExtractor<D> {
                     if let Some(response) = initial_data.get("response") {
                         Ok((response.clone(), false))
                     } else {
-                        Err(
-                            ParsingError::ParsingError {
-                                cause:"Cannot get initial data".to_string()
-                            }
-                        )
+                        Err(ParsingError::ParsingError {
+                            cause: "Cannot get initial data".to_string(),
+                        })
                     }
                 } else {
-                    Err(
-                        ParsingError::ParsingError {
-                            cause:"initial ajax doesnt have index 3".to_string()
-                        }
-                    )
+                    Err(ParsingError::ParsingError {
+                        cause: "initial ajax doesnt have index 3".to_string(),
+                    })
                 }
             }
         } else {
-            Err(
-                ParsingError::ParsingError {
-                    cause:"initial ajax doesnt have index 2".to_string()
-                }
-            )
+            Err(ParsingError::ParsingError {
+                cause: "initial ajax doesnt have index 2".to_string(),
+            })
         }
         // println!("{:#?}",data)
     }
@@ -334,14 +321,18 @@ impl<D: Downloader> YTStreamExtractor<D> {
             .and_then(|content| content.get("results"))
             .and_then(|content| content.get("contents"))
             .and_then(|contents| contents.as_array())
-            .ok_or(ParsingError::ParsingError {cause:"cant get contents".to_string()})?;
+            .ok_or(ParsingError::ParsingError {
+                cause: "cant get contents".to_string(),
+            })?;
 
         for content in contents {
             if let Some(info) = content.get("videoPrimaryInfoRenderer") {
                 return Ok(info.clone());
             }
         }
-        Err(ParsingError::ParsingError {cause:"could not get primary info renderer".to_string()})
+        Err(ParsingError::ParsingError {
+            cause: "could not get primary info renderer".to_string(),
+        })
     }
     fn get_secondary_info_renderer(inital_data: &Value) -> Result<Value, ParsingError> {
         let contents = inital_data
@@ -351,19 +342,25 @@ impl<D: Downloader> YTStreamExtractor<D> {
             .and_then(|content| content.get("results"))
             .and_then(|content| content.get("contents"))
             .and_then(|contents| contents.as_array())
-            .ok_or(ParsingError::ParsingError{cause:"cant get contents".to_string()})?;
+            .ok_or(ParsingError::ParsingError {
+                cause: "cant get contents".to_string(),
+            })?;
 
         for content in contents {
             if let Some(info) = content.get("videoSecondaryInfoRenderer") {
                 return Ok(info.clone());
             }
         }
-        Err(ParsingError::ParsingError {cause:"could not get primary info renderer".to_string()})
+        Err(ParsingError::ParsingError {
+            cause: "could not get primary info renderer".to_string(),
+        })
     }
 
     fn load_decryption_code(player_code: &str) -> Result<String, ParsingError> {
         let decryption_func_name = YTStreamExtractor::<D>::get_decryption_func_name(player_code)
-            .ok_or(ParsingError::parsing_error_from_str("Cant find decryption function"))?;
+            .ok_or(ParsingError::parsing_error_from_str(
+                "Cant find decryption function",
+            ))?;
 
         // println!("Decryption func name {}", decryption_func_name);
         let function_pattern = format!(
@@ -453,9 +450,7 @@ impl<D: Downloader> YTStreamExtractor<D> {
             }
         }
         if title.is_empty() {
-            Err(
-                ParsingError::parsing_error_from_str("Cant get title")
-            )
+            Err(ParsingError::parsing_error_from_str("Cant get title"))
         } else {
             Ok(title)
         }
@@ -508,7 +503,9 @@ impl<D: Downloader> YTStreamExtractor<D> {
                 }
             }
         }
-        Err(ParsingError::parsing_error_from_str("Cant get video thumbnails"))
+        Err(ParsingError::parsing_error_from_str(
+            "Cant get video thumbnails",
+        ))
     }
 
     pub fn get_length(&self) -> Result<u64, ParsingError> {
@@ -593,9 +590,9 @@ impl<D: Downloader> YTStreamExtractor<D> {
                 .and_then(|f| f.as_bool())
             {
                 if allow_ratings {
-                    return Err(
-                        ParsingError::parsing_error_from_str("Ratings are enabled even though the like button is missing")
-                    );
+                    return Err(ParsingError::parsing_error_from_str(
+                        "Ratings are enabled even though the like button is missing",
+                    ));
                 } else {
                     return Ok(-1);
                 }
@@ -605,7 +602,9 @@ impl<D: Downloader> YTStreamExtractor<D> {
                 return Ok(likes);
             }
         }
-        Err(ParsingError::parsing_error_from_str("could not get like count"))
+        Err(ParsingError::parsing_error_from_str(
+            "could not get like count",
+        ))
     }
 
     pub fn get_dislike_count(&self) -> Result<i128, ParsingError> {
@@ -629,9 +628,9 @@ impl<D: Downloader> YTStreamExtractor<D> {
                 .and_then(|f| f.as_bool())
             {
                 if allow_ratings {
-                    return Err(
-                        ParsingError::parsing_error_from_str("Ratings are enabled even though the dislike button is missing"),
-                    );
+                    return Err(ParsingError::parsing_error_from_str(
+                        "Ratings are enabled even though the dislike button is missing",
+                    ));
                 } else {
                     return Ok(-1);
                 }
@@ -641,7 +640,9 @@ impl<D: Downloader> YTStreamExtractor<D> {
                 return Ok(likes);
             }
         }
-        Err(ParsingError::parsing_error_from_str("could not get dislike count"))
+        Err(ParsingError::parsing_error_from_str(
+            "could not get dislike count",
+        ))
     }
 
     pub fn get_uploader_url(&self) -> Result<String, ParsingError> {
@@ -664,7 +665,9 @@ impl<D: Downloader> YTStreamExtractor<D> {
         {
             return Ok(format!("https://www.youtube.com/channel/{}", uploader_id));
         }
-        Err(ParsingError::parsing_error_from_str("Cant get uploader url"))
+        Err(ParsingError::parsing_error_from_str(
+            "Cant get uploader url",
+        ))
     }
 
     pub fn get_uploader_name(&self) -> Result<String, ParsingError> {
@@ -691,7 +694,9 @@ impl<D: Downloader> YTStreamExtractor<D> {
         }
 
         if uploader_name.is_empty() {
-            Err(ParsingError::parsing_error_from_str("Cant get uploader name"))
+            Err(ParsingError::parsing_error_from_str(
+                "Cant get uploader name",
+            ))
         } else {
             Ok(uploader_name)
         }
