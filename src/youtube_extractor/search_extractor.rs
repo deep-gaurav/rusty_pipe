@@ -52,7 +52,7 @@ impl YTSearchExtractor {
         Ok(resp_json)
     }
 
-    fn collect_streams_from(videos:&Vec<Value>)->Result<Vec<YTSearchItem>,ParsingError>{
+    fn collect_streams_from(videos: &Vec<Value>) -> Result<Vec<YTSearchItem>, ParsingError> {
         let mut search_items = vec![];
         for item in videos {
             if item.get("backgroundPromoRenderer").is_some() {
@@ -60,19 +60,15 @@ impl YTSearchExtractor {
             }
             if let Some(el) = item.get("videoRenderer").map(|f| f.as_object()) {
                 if let Some(vid_info) = el {
-                    search_items.push(YTSearchItem::StreamInfoItem(
-                        YTStreamInfoItemExtractor {
-                            video_info: vid_info.to_owned(),
-                        },
-                    ));
+                    search_items.push(YTSearchItem::StreamInfoItem(YTStreamInfoItemExtractor {
+                        video_info: vid_info.to_owned(),
+                    }));
                 }
             } else if let Some(el) = item.get("channelRenderer").map(|f| f.as_object()) {
                 if let Some(vid_info) = el {
-                    search_items.push(YTSearchItem::ChannelInfoItem(
-                        YTChannelInfoItemExtractor {
-                            channel_info: vid_info.to_owned(),
-                        },
-                    ));
+                    search_items.push(YTSearchItem::ChannelInfoItem(YTChannelInfoItemExtractor {
+                        channel_info: vid_info.to_owned(),
+                    }));
                 }
             } else if let Some(el) = item.get("playlistRenderer").map(|f| f.as_object()) {
                 if let Some(vid_info) = el {
@@ -88,7 +84,7 @@ impl YTSearchExtractor {
         Ok(search_items)
     }
 
-    fn get_next_page_url_from(continuation:&Value,query:&str)->Option<String>{
+    fn get_next_page_url_from(continuation: &Value, query: &str) -> Option<String> {
         let next_continuation_data = continuation.get(0)?.get("nextContinuationData")?;
         let continuation = next_continuation_data.get("continuation")?.as_str()?;
         let click_tracking_params = next_continuation_data
@@ -113,7 +109,7 @@ impl YTSearchExtractor {
         );
         let response = downloader.download_with_header(&page_url, headers).await?;
         let json_response = serde_json::from_str::<Value>(&response)
-            .map_err(|e| ParsingError::from(format!("json eror : {:#?}",e)))?;
+            .map_err(|e| ParsingError::from(format!("json eror : {:#?}", e)))?;
 
         let section_list_continuation = (|| {
             json_response
@@ -122,7 +118,7 @@ impl YTSearchExtractor {
                 .get("continuationContents")?
                 .get("itemSectionContinuation")
         })()
-            .ok_or("Cant get continuation")?;
+        .ok_or("Cant get continuation")?;
 
         let items = YTSearchExtractor::collect_streams_from(
             section_list_continuation
@@ -135,31 +131,27 @@ impl YTSearchExtractor {
             section_list_continuation
                 .get("continuations")
                 .unwrap_or(&Value::Null),
-            query
+            query,
         );
 
         Ok((items, next_url))
     }
-
-
 }
 
 impl YTSearchExtractor {
     pub async fn new<D: Downloader>(
         downloader: D,
         query: &str,
-        page_url: Option<String>
+        page_url: Option<String>,
     ) -> Result<YTSearchExtractor, ParsingError> {
-
-
         let url = format!(
             "https://www.youtube.com/results?disable_polymer=1&search_query={}",
             query
         );
         let query = utf8_percent_encode(query, FRAGMENT).to_string();
         if let Some(page_url) = page_url {
-            let initial_data = YTSearchExtractor::get_initial_data(&downloader,&url);
-            let page = YTSearchExtractor::get_page(&page_url, &downloader,&query);
+            let initial_data = YTSearchExtractor::get_initial_data(&downloader, &url);
+            let page = YTSearchExtractor::get_page(&page_url, &downloader, &query);
             use futures::try_join;
             let (initial_data, page) = try_join!(initial_data, page)?;
 
@@ -169,8 +161,7 @@ impl YTSearchExtractor {
                 page: Some(page),
             })
         } else {
-            let initial_data =
-                YTSearchExtractor::get_initial_data( &downloader,&url).await?;
+            let initial_data = YTSearchExtractor::get_initial_data(&downloader, &url).await?;
             Ok(YTSearchExtractor {
                 initial_data,
                 query,
@@ -193,9 +184,10 @@ impl YTSearchExtractor {
                 .get(0)?
                 .get("showingResultsForRenderer")?;
             Some(data.to_owned())
-        })(&self.initial_data).unwrap_or_default();
-        if let Some(correction)=showing_results.get("correctedQuery"){
-            if let Some(correction )= correction.as_str(){
+        })(&self.initial_data)
+        .unwrap_or_default();
+        if let Some(correction) = showing_results.get("correctedQuery") {
+            if let Some(correction) = correction.as_str() {
                 return Ok(correction.to_string());
             }
         }
@@ -203,7 +195,7 @@ impl YTSearchExtractor {
     }
 
     pub fn search_results(&self) -> Result<Vec<YTSearchItem>, ParsingError> {
-        if let Some((items,_))=&self.page{
+        if let Some((items, _)) = &self.page {
             return Ok(items.clone());
         }
         // println!("{:#?}",self.initial_data);
@@ -232,20 +224,19 @@ impl YTSearchExtractor {
             })()
             .ok_or("cant get section")?;
 
-            search_items.append(
-                &mut YTSearchExtractor::collect_streams_from(&item_section)?
-            )
+            search_items.append(&mut YTSearchExtractor::collect_streams_from(&item_section)?)
         }
         return Ok(search_items);
     }
 
-    pub fn get_next_page_url(&self) -> Result<Option<String>,ParsingError>{
-        if let Some((_,url))=&self.page{
-            return Ok(url.clone())
-        }else {
-            return Ok(
-                YTSearchExtractor::get_next_page_url_from(
-                    (||self.initial_data.get("contents")?
+    pub fn get_next_page_url(&self) -> Result<Option<String>, ParsingError> {
+        if let Some((_, url)) = &self.page {
+            return Ok(url.clone());
+        } else {
+            return Ok(YTSearchExtractor::get_next_page_url_from(
+                (|| {
+                    self.initial_data
+                        .get("contents")?
                         .get("twoColumnSearchResultsRenderer")?
                         .get("primaryContents")?
                         .get("sectionListRenderer")?
@@ -253,10 +244,10 @@ impl YTSearchExtractor {
                         .get(0)?
                         .get("itemSectionRenderer")?
                         .get("continuations")
-                    )().ok_or("no continuation")?,
-                    &self.query
-                )
-            )
+                })()
+                .ok_or("no continuation")?,
+                &self.query,
+            ));
         }
     }
 }

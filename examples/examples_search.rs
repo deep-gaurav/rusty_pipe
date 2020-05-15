@@ -23,26 +23,24 @@ async fn main() -> Result<(), Error> {
 
     search_query = encode(&search_query);
 
-    let search_extractor = YTSearchExtractor::new(DownloaderExample, &search_query,None).await?;
+    let search_extractor = YTSearchExtractor::new(DownloaderExample, &search_query, None).await?;
     let search_suggestion = search_extractor.get_search_suggestion();
 
     println!("Search suggestion {:#?}", search_suggestion);
-    let mut  items = search_extractor.search_results()?;
-    let mut  next_url = search_extractor.get_next_page_url()?;
-    println!("Next page url : {:#?}",next_url);
-    let mut  max_page = 5;
-    while let Some(url)=next_url.clone() {
-        max_page -=1;
-        if max_page < 0{
+    let mut items = search_extractor.search_results()?;
+    let mut next_url = search_extractor.get_next_page_url()?;
+    println!("Next page url : {:#?}", next_url);
+    let mut max_page = 5;
+    while let Some(url) = next_url.clone() {
+        max_page -= 1;
+        if max_page < 0 {
             break;
         }
-        let search_extractor = YTSearchExtractor::new(DownloaderExample, &search_query,Some(url)).await?;
-        items.append(
-            &mut search_extractor.search_results()?
-        );
+        let search_extractor =
+            YTSearchExtractor::new(DownloaderExample, &search_query, Some(url)).await?;
+        items.append(&mut search_extractor.search_results()?);
         next_url = search_extractor.get_next_page_url()?;
-        println!("Next page url : {:#?}",next_url);
-
+        println!("Next page url : {:#?}", next_url);
     }
     println!("Items Found {}", items.len());
     println!();
