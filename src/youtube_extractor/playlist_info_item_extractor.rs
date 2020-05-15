@@ -5,6 +5,7 @@ use crate::youtube_extractor::stream_extractor::Thumbnail;
 use scraper::{ElementRef, Selector};
 use serde_json::{Map, Value};
 
+#[derive(Clone)]
 pub struct YTPlaylistInfoItemExtractor {
     pub playlist_info: Map<String, Value>,
 }
