@@ -1,5 +1,5 @@
 pub mod downloader_trait;
-mod utils;
+pub mod utils;
 pub mod youtube_extractor;
 
 #[cfg(test)]
