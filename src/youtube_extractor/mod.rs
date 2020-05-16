@@ -7,6 +7,7 @@ pub mod playlist_info_item_extractor;
 pub mod search_extractor;
 pub mod stream_extractor;
 pub mod stream_info_item_extractor;
+pub mod trending_extractor;
 
 static YOUTUBE_BASE_URL: &str = "https://www.youtube.com";
 

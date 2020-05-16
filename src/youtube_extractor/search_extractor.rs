@@ -170,28 +170,30 @@ impl YTSearchExtractor {
         }
     }
 
-    pub fn get_search_suggestion(&self) -> Result<String, ParsingError> {
-        let showing_results: Value = (|initdata: &Map<String, Value>| {
-            let data = initdata
-                .get("contents")?
-                .get("twoColumnSearchResultsRenderer")?
-                .get("primaryContents")?
-                .get("sectionListRenderer")?
-                .get("contents")?
-                .get(0)?
-                .get("itemSectionRenderer")?
-                .get("contents")?
-                .get(0)?
-                .get("showingResultsForRenderer")?;
-            Some(data.to_owned())
-        })(&self.initial_data)
-        .unwrap_or_default();
-        if let Some(correction) = showing_results.get("correctedQuery") {
-            if let Some(correction) = correction.as_str() {
-                return Ok(correction.to_string());
+    pub async fn get_search_suggestion<D:Downloader>(&self,downloader:&D) -> Result<Vec<String>, ParsingError> {
+        let mut suggestions = vec![];
+        let url = format!(
+            "https://suggestqueries.google.com/complete/search\
+            ?client=youtube\
+            &jsonp=jp\
+            &ds=yt\
+            &q={}",
+            self.query
+        );
+        let resp = downloader.download(&url).await?;
+        let resp = resp[3..resp.len()-1].to_string();
+        let json = serde_json::from_str::<Value>(&resp).map_err(|e|ParsingError::from(e.to_string()))?;
+        if let Some(collection)= (||json.get(1)?.as_array())(){
+            for suggestion in collection{
+                if let Some(suggestion_str) = (||suggestion.get(0)?.as_str())(){
+                    suggestions.push(
+                        suggestion_str.to_string()
+                    )
+                }
             }
         }
-        Ok("".to_string())
+
+        Ok(suggestions)
     }
 
     pub fn search_results(&self) -> Result<Vec<YTSearchItem>, ParsingError> {
