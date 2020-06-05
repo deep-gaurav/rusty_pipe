@@ -3,7 +3,6 @@ extern crate rusty_pipe;
 use rusty_pipe::downloader_trait::Downloader;
 use rusty_pipe::youtube_extractor::search_extractor::*;
 use rusty_pipe::youtube_extractor::stream_extractor::*;
-use scraper::Html;
 use std::io;
 
 use async_trait::async_trait;
@@ -11,9 +10,10 @@ use std::collections::hash_map::RandomState;
 use std::collections::HashMap;
 use std::str::FromStr;
 use urlencoding::encode;
+use rusty_pipe::youtube_extractor::error::ParsingError;
 
 #[tokio::main]
-async fn main() -> Result<(), String> {
+async fn main() -> Result<(), failure::Error> {
     static APP_USER_AGENT: &str =
         "Mozilla/5.0 (X11; Linux x86_64; rv:68.0) Gecko/20100101 Firefox/43.0";
 
@@ -64,11 +64,20 @@ struct DownloaderExample {}
 
 #[async_trait]
 impl Downloader for DownloaderExample {
-    async fn download(&self, url: &str) -> Result<String, String> {
+    async fn download(&self, url: &str) -> Result<String, ParsingError> {
         println!("query url : {}", url);
-        let resp = reqwest::get(url).await.map_err(|er| er.to_string())?;
+        let resp = reqwest::get(url)
+            .await
+            .map_err(|er| ParsingError::DownloadError {
+                cause: er.to_string(),
+            })?;
         println!("got response ");
-        let body = resp.text().await.map_err(|er| er.to_string())?;
+        let body = resp
+            .text()
+            .await
+            .map_err(|er| ParsingError::DownloadError {
+                cause: er.to_string(),
+            })?;
         println!("suceess query");
         Ok(String::from(body))
     }
@@ -76,8 +85,8 @@ impl Downloader for DownloaderExample {
     async fn download_with_header(
         &self,
         url: &str,
-        header: HashMap<String, String, RandomState>,
-    ) -> Result<String, String> {
+        header: HashMap<String, String>,
+    ) -> Result<String, ParsingError> {
         let client = reqwest::Client::new();
         let res = client.get(url);
         let mut headers = reqwest::header::HeaderMap::new();

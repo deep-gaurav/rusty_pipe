@@ -1,3 +1,5 @@
+extern crate rusty_pipe;
+
 use rusty_pipe::downloader_trait::Downloader;
 use rusty_pipe::youtube_extractor::error::ParsingError;
 use std::collections::HashMap;

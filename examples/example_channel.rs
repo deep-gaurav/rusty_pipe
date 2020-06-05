@@ -1,7 +1,6 @@
 extern crate rusty_pipe;
 
 use rusty_pipe::youtube_extractor::search_extractor::*;
-use scraper::Html;
 use std::io;
 
 use rusty_pipe::downloader_trait::Downloader;

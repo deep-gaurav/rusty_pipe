@@ -1,5 +1,4 @@
 use super::super::downloader_trait::Downloader;
-use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
@@ -405,25 +404,26 @@ impl<D: Downloader> YTStreamExtractor<D> {
             DECRYPTION_AKAMAIZED_SHORT_STRING_REGEX,
             DECRYPTION_AKAMAIZED_STRING_REGEX,
         ];
+        use fancy_regex::Regex;
         for reg in decryption_func_name_regexes {
-            let rege = pcre2::bytes::Regex::new(reg).expect("Regex is wrong");
-            let capture = rege.captures(player_code.as_bytes()).unwrap();
+            let rege = fancy_regex::Regex::new(reg).ok()?;
+            let capture = rege.captures(player_code).unwrap();
             if let Some(capture) = capture {
                 return capture
                     .get(1)
-                    .map(|m| std::str::from_utf8(m.as_bytes()).unwrap().to_owned());
+                    .map(|m| m.as_str().to_string());
             }
         }
         None
     }
 
     fn match_group1(reg: &str, text: &str) -> Result<String, ParsingError> {
-        let rege = pcre2::bytes::Regex::new(reg).expect("Regex is wrong");
-        let capture = rege.captures(text.as_bytes()).map_err(|e| e.to_string())?;
+        let rege = fancy_regex::Regex::new(reg).expect("Regex is wrong");
+        let capture = rege.captures(text).map_err(|e| e.to_string())?;
         if let Some(capture) = capture {
             return capture
                 .get(1)
-                .map(|m| std::str::from_utf8(m.as_bytes()).unwrap().to_owned())
+                .map(|m| m.as_str().to_string())
                 .ok_or(ParsingError::parsing_error_from_str("group 1 not found"));
         }
         Err(ParsingError::parsing_error_from_str("regex not match"))

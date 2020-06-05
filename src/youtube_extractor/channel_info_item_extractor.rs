@@ -1,7 +1,6 @@
 use crate::utils::utils::{get_text_from_object, mixed_number_word_parse, remove_non_digit_chars};
 use crate::youtube_extractor::error::ParsingError;
 use crate::youtube_extractor::stream_extractor::Thumbnail;
-use scraper::{ElementRef, Selector};
 use serde_json::{Map, Value};
 
 #[derive(Clone)]

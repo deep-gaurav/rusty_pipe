@@ -6,7 +6,6 @@ use crate::youtube_extractor::stream_extractor::HARDCODED_CLIENT_VERSION;
 use crate::youtube_extractor::stream_info_item_extractor::YTStreamInfoItemExtractor;
 use failure::Error;
 use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
-use scraper::{ElementRef, Html, Selector};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 
@@ -24,14 +23,16 @@ pub struct YTSearchExtractor {
     initial_data: Map<String, Value>,
     query: String,
     page: Option<(Vec<YTSearchItem>, Option<String>)>,
+    p_url: Option<String>
 }
 
 impl YTSearchExtractor {
     async fn get_initial_data<D: Downloader>(
         downloader: &D,
         url: &str,
+        page_count:&str
     ) -> Result<Map<String, Value>, ParsingError> {
-        let url = format!("{}&gl=IN&pbj=1", url);
+        let url = format!("{}&gl=US&pbj=1&page={}", url,page_count);
         let mut headers = HashMap::new();
         headers.insert("X-YouTube-Client-Name".to_string(), "1".to_string());
         headers.insert(
@@ -85,7 +86,14 @@ impl YTSearchExtractor {
     }
 
     fn get_next_page_url_from(continuation: &Value, query: &str) -> Option<String> {
-        let next_continuation_data = continuation.get(0)?.get("nextContinuationData")?;
+        // print!("{:#?}",continuation);
+        let next_continuation_data = (|| continuation.get(0)?.get("nextContinuationData"))()
+            .or((|| {
+                continuation
+                    .get("continuationItemRenderer")?
+                    .get("continuationEndpoint")
+            })())
+            .unwrap_or(&Value::Null);
         let continuation = next_continuation_data.get("continuation")?.as_str()?;
         let click_tracking_params = next_continuation_data
             .get("clickTrackingParams")?
@@ -150,27 +158,29 @@ impl YTSearchExtractor {
         );
         let query = utf8_percent_encode(query, FRAGMENT).to_string();
         if let Some(page_url) = page_url {
-            let initial_data = YTSearchExtractor::get_initial_data(&downloader, &url);
-            let page = YTSearchExtractor::get_page(&page_url, &downloader, &query);
-            use futures::try_join;
-            let (initial_data, page) = try_join!(initial_data, page)?;
+            let initial_data = YTSearchExtractor::get_initial_data(&downloader, &url,&page_url).await?;
 
-            Ok(YTSearchExtractor {
-                initial_data,
-                query,
-                page: Some(page),
-            })
-        } else {
-            let initial_data = YTSearchExtractor::get_initial_data(&downloader, &url).await?;
             Ok(YTSearchExtractor {
                 initial_data,
                 query,
                 page: None,
+                p_url: Some(page_url)
+            })
+        } else {
+            let initial_data = YTSearchExtractor::get_initial_data(&downloader, &url,"1").await?;
+            Ok(YTSearchExtractor {
+                initial_data,
+                query,
+                page: None,
+                p_url: Some("1".to_string())
             })
         }
     }
 
-    pub async fn get_search_suggestion<D:Downloader>(&self,downloader:&D) -> Result<Vec<String>, ParsingError> {
+    pub async fn get_search_suggestion<D: Downloader>(
+        &self,
+        downloader: &D,
+    ) -> Result<Vec<String>, ParsingError> {
         let mut suggestions = vec![];
         let url = format!(
             "https://suggestqueries.google.com/complete/search\
@@ -181,14 +191,13 @@ impl YTSearchExtractor {
             self.query
         );
         let resp = downloader.download(&url).await?;
-        let resp = resp[3..resp.len()-1].to_string();
-        let json = serde_json::from_str::<Value>(&resp).map_err(|e|ParsingError::from(e.to_string()))?;
-        if let Some(collection)= (||json.get(1)?.as_array())(){
-            for suggestion in collection{
-                if let Some(suggestion_str) = (||suggestion.get(0)?.as_str())(){
-                    suggestions.push(
-                        suggestion_str.to_string()
-                    )
+        let resp = resp[3..resp.len() - 1].to_string();
+        let json =
+            serde_json::from_str::<Value>(&resp).map_err(|e| ParsingError::from(e.to_string()))?;
+        if let Some(collection) = (|| json.get(1)?.as_array())() {
+            for suggestion in collection {
+                if let Some(suggestion_str) = (|| suggestion.get(0)?.as_str())() {
+                    suggestions.push(suggestion_str.to_string())
                 }
             }
         }
@@ -224,32 +233,20 @@ impl YTSearchExtractor {
                     .as_array()?;
                 Some(c)
             })()
-            .ok_or("cant get section")?;
-
-            search_items.append(&mut YTSearchExtractor::collect_streams_from(&item_section)?)
+            .ok_or("cant get section");
+            if let Ok(item_section) = item_section {
+                search_items.append(&mut YTSearchExtractor::collect_streams_from(&item_section)?)
+            }
         }
         return Ok(search_items);
     }
 
     pub fn get_next_page_url(&self) -> Result<Option<String>, ParsingError> {
-        if let Some((_, url)) = &self.page {
-            return Ok(url.clone());
-        } else {
-            return Ok(YTSearchExtractor::get_next_page_url_from(
-                (|| {
-                    self.initial_data
-                        .get("contents")?
-                        .get("twoColumnSearchResultsRenderer")?
-                        .get("primaryContents")?
-                        .get("sectionListRenderer")?
-                        .get("contents")?
-                        .get(0)?
-                        .get("itemSectionRenderer")?
-                        .get("continuations")
-                })()
-                .ok_or("no continuation")?,
-                &self.query,
-            ));
-        }
+        let pu = self.p_url.clone().unwrap_or_default().parse::<u32>().map_err(|e|ParsingError::from(e.to_string()))?;
+        return Ok(
+            Some(
+                format!("{}",pu+1)
+            )
+        );
     }
 }

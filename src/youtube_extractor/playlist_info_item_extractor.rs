@@ -2,7 +2,6 @@ use crate::utils::utils::remove_non_digit_chars;
 use crate::utils::utils::*;
 use crate::youtube_extractor::error::ParsingError;
 use crate::youtube_extractor::stream_extractor::Thumbnail;
-use scraper::{ElementRef, Selector};
 use serde_json::{Map, Value};
 
 #[derive(Clone)]
