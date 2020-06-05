@@ -11,4 +11,5 @@ pub trait Downloader {
         url: &str,
         header: HashMap<String, String>,
     ) -> Result<String, ParsingError>;
+    fn eval_js(script: &str) -> Result<String, String>;
 }
