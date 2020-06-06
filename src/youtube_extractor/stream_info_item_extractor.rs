@@ -4,7 +4,7 @@ use crate::youtube_extractor::stream_extractor::Thumbnail;
 use serde_json::{Map, Value};
 use std::convert::TryInto;
 
-#[derive(Clone)]
+#[derive(Clone,PartialEq)]
 pub struct YTStreamInfoItemExtractor {
     pub video_info: Map<String, Value>,
 }

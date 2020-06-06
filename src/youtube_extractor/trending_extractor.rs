@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use crate::youtube_extractor::stream_extractor::HARDCODED_CLIENT_VERSION;
 use crate::youtube_extractor::stream_info_item_extractor::YTStreamInfoItemExtractor;
 
+#[derive(Clone,PartialEq)]
 pub struct YTTrendingExtractor{
     initial_data:Value
 }

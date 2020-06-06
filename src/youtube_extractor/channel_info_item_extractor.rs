@@ -3,7 +3,7 @@ use crate::youtube_extractor::error::ParsingError;
 use crate::youtube_extractor::stream_extractor::Thumbnail;
 use serde_json::{Map, Value};
 
-#[derive(Clone)]
+#[derive(Clone,PartialEq)]
 pub struct YTChannelInfoItemExtractor {
     pub channel_info: Map<String, Value>,
 }

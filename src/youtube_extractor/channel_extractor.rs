@@ -8,6 +8,7 @@ use std::collections::HashMap;
 
 pub static CHANNEL_URL_BASE: &str = "https://www.youtube.com/channel/";
 
+#[derive(Clone,PartialEq)]
 pub struct YTChannelExtractor {
     initial_data: Value,
     video_tab: Value,

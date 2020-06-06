@@ -12,13 +12,14 @@ use std::collections::HashMap;
 /// https://url.spec.whatwg.org/#fragment-percent-encode-set
 const FRAGMENT: &AsciiSet = &CONTROLS.add(b' ').add(b'"').add(b'<').add(b'>').add(b'`');
 
-#[derive(Clone)]
+#[derive(Clone,PartialEq)]
 pub enum YTSearchItem {
     StreamInfoItem(YTStreamInfoItemExtractor),
     ChannelInfoItem(YTChannelInfoItemExtractor),
     PlaylistInfoItem(YTPlaylistInfoItemExtractor),
 }
 
+#[derive(Clone,PartialEq)]
 pub struct YTSearchExtractor {
     initial_data: Map<String, Value>,
     query: String,

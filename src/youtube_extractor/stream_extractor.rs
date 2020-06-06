@@ -42,6 +42,7 @@ lazy_static!{
 
 pub const HARDCODED_CLIENT_VERSION: &str = "2.20200214.04.00";
 
+#[derive(Clone,PartialEq)]
 pub struct YTStreamExtractor<D: Downloader> {
     doc: String,
     player_args: Map<String, Value>,
