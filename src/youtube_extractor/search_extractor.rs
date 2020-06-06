@@ -178,7 +178,7 @@ impl YTSearchExtractor {
     }
 
     pub async fn get_search_suggestion<D: Downloader>(
-        &self,
+        query:&str,
         downloader: &D,
     ) -> Result<Vec<String>, ParsingError> {
         let mut suggestions = vec![];
@@ -188,7 +188,7 @@ impl YTSearchExtractor {
             &jsonp=jp\
             &ds=yt\
             &q={}",
-            self.query
+           query 
         );
         let resp = D::download(&url).await?;
         let resp = resp[3..resp.len() - 1].to_string();

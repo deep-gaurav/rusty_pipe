@@ -23,7 +23,7 @@ async fn main() -> Result<(), Error> {
     search_query = encode(&search_query);
 
     let search_extractor = YTSearchExtractor::new(DownloaderExample, &search_query, None).await?;
-    let search_suggestion = search_extractor.get_search_suggestion(&DownloaderExample).await?;
+    let search_suggestion = YTSearchExtractor::get_search_suggestion(&search_query,&DownloaderExample).await?;
 
     println!("Search suggestion {:#?}", search_suggestion);
     let mut items = search_extractor.search_results()?;
