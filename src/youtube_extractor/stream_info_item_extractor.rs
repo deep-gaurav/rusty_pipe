@@ -272,4 +272,28 @@ impl YTStreamInfoItemExtractor {
         }
         Ok(thumbnails)
     }
+
+    pub fn get_uploader_thumbnails(&self) -> Result<Vec<Thumbnail>, ParsingError> {
+        let mut thumbnails = vec![];
+        for thumb in self
+            .video_info
+            .get("channelThumbnailSupportedRenderers")
+            .ok_or("no channel thumbnail")?
+            .get("channelThumbnailWithLinkRenderer")
+            .ok_or("no channel thumbnail")?
+            .get("thumbnail")
+            .ok_or("No thumbnail")?
+            .get("thumbnails")
+            .ok_or("no thumbnails")?
+            .as_array()
+            .ok_or("thumbnails array")?
+        {
+            // println!("{:#?}",thumb);
+            if let Ok(thumb) = serde_json::from_value(thumb.to_owned()) {
+                thumbnails.push(thumb)
+            }
+        }
+        Ok(thumbnails)
+    }
+
 }

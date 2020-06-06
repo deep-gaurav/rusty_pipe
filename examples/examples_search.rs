@@ -77,6 +77,7 @@ async fn main() -> Result<(), Error> {
                 );
                 println!("View Count: {:#?}", streaminfoitem.get_view_count());
                 println!("Thumbnails:\n {:#?}", streaminfoitem.get_thumbnails());
+                println!("Uploader Thumbnails:\n {:#?}",streaminfoitem.get_uploader_thumbnails());
 
                 println!();
             }
