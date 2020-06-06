@@ -21,7 +21,7 @@ async fn main() -> Result<(), failure::Error> {
     // let resp = reqwest::get(url).await.map_err(|er|er.to_string())?;
 
     let downloader = DownloaderExample {};
-    // let body = downloader.download(url).await?;
+    // let body = D::download(url).await?;
 
     let mut stream_extractor = YTStreamExtractor::new("8SfbFwMpsRw", downloader).await?;
     let video_streams = stream_extractor.get_video_stream()?;
@@ -64,7 +64,7 @@ struct DownloaderExample {}
 
 #[async_trait]
 impl Downloader for DownloaderExample {
-    async fn download(&self, url: &str) -> Result<String, ParsingError> {
+    async fn download( url: &str) -> Result<String, ParsingError> {
         println!("query url : {}", url);
         let resp = reqwest::get(url)
             .await
@@ -83,7 +83,6 @@ impl Downloader for DownloaderExample {
     }
 
     async fn download_with_header(
-        &self,
         url: &str,
         header: HashMap<String, String>,
     ) -> Result<String, ParsingError> {

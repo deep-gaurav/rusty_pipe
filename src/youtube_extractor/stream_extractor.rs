@@ -92,7 +92,7 @@ impl<D: Downloader> YTStreamExtractor<D> {
             video_id
         );
 
-        let doc = downloader.download(&url);
+        let doc = D::download(&url);
         let initial_data = YTStreamExtractor::<D>::get_initial_data(&url, &downloader);
         let (doc, initial_data) = try_join!(doc, initial_data)?;
         if initial_data.1 {
@@ -225,7 +225,7 @@ impl<D: Downloader> YTStreamExtractor<D> {
                 format!("https://youtube.com{}", player_url)
             }
         };
-        let player_code = downloader.download(&player_url).await?;
+        let player_code = D::download(&player_url).await?;
         let player_code = YTStreamExtractor::<D>::load_decryption_code(&player_code)?;
         Ok(player_code)
     }
@@ -289,7 +289,7 @@ impl<D: Downloader> YTStreamExtractor<D> {
             HARDCODED_CLIENT_VERSION.to_string(),
         );
         let url = format!("{}&pbj=1", url);
-        let data = downloader.download_with_header(&url, headers).await?;
+        let data = D::download_with_header(&url, headers).await?;
         let initial_ajax_json: Value = serde_json::from_str(&data).map_err(|e| e.to_string())?;
         let initial_ajax_json = initial_ajax_json
             .as_array()

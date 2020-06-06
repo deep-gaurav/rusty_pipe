@@ -20,7 +20,7 @@ impl YTTrendingExtractor{
             HARDCODED_CLIENT_VERSION.to_string(),
         );
         let url = format!("{}&pbj=1", url);
-        let data = downloader.download_with_header(&url, headers).await?;
+        let data = D::download_with_header(&url, headers).await?;
         let mut json = serde_json::from_str::<Value>(&data).map_err(|e|ParsingError::from(e.to_string()))?;
         Ok(
             json.get_mut(1).ok_or("No index 1")?.get_mut("response").ok_or("No response")?.take()

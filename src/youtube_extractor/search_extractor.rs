@@ -39,7 +39,7 @@ impl YTSearchExtractor {
             "X-YouTube-Client-Version".to_string(),
             HARDCODED_CLIENT_VERSION.to_string(),
         );
-        let resp = downloader.download_with_header(&url, headers).await?;
+        let resp = D::download_with_header(&url, headers).await?;
         let resp_json = serde_json::from_str::<Value>(&resp)
             .map_err(|er| ParsingError::parsing_error_from_str(&er.to_string()))?;
         let resp_json = resp_json
@@ -115,7 +115,7 @@ impl YTSearchExtractor {
             "X-YouTube-Client-Version".to_string(),
             HARDCODED_CLIENT_VERSION.to_string(),
         );
-        let response = downloader.download_with_header(&page_url, headers).await?;
+        let response = D::download_with_header(&page_url, headers).await?;
         let json_response = serde_json::from_str::<Value>(&response)
             .map_err(|e| ParsingError::from(format!("json eror : {:#?}", e)))?;
 
@@ -190,7 +190,7 @@ impl YTSearchExtractor {
             &q={}",
             self.query
         );
-        let resp = downloader.download(&url).await?;
+        let resp = D::download(&url).await?;
         let resp = resp[3..resp.len() - 1].to_string();
         let json =
             serde_json::from_str::<Value>(&resp).map_err(|e| ParsingError::from(e.to_string()))?;
