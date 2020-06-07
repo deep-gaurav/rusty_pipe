@@ -4,7 +4,7 @@ use crate::youtube_extractor::stream_extractor::Thumbnail;
 use serde_json::{Map, Value};
 use std::convert::TryInto;
 
-#[derive(Clone,PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct YTStreamInfoItemExtractor {
     pub video_info: Map<String, Value>,
 }
@@ -108,7 +108,7 @@ impl YTStreamInfoItemExtractor {
         Ok(false)
     }
 
-    pub fn get_textual_duration(&self)->Result<String, ParsingError>{
+    pub fn get_textual_duration(&self) -> Result<String, ParsingError> {
         if self.is_live()? {
             return Ok("LIVE".to_string());
         }
@@ -270,6 +270,24 @@ impl YTStreamInfoItemExtractor {
         Ok(pt.ok_or("Cant get upload date")?)
     }
 
+    pub fn get_textual_view_count(&self) -> Result<String, ParsingError> {
+        if self.is_premium_video()? || self.video_info.contains_key("topStandaloneBadge") {
+            return Ok("".to_string());
+        }
+        if let Some(viewc) = self.video_info.get("viewCountText") {
+            let view_count = get_text_from_object(viewc, false)?.unwrap_or_default();
+            if view_count.to_ascii_lowercase().contains("no views") {
+                return Ok("no views".to_string());
+            } else if view_count.to_ascii_lowercase().contains("recommended") {
+                return Err(ParsingError::from("views hidden"));
+            } else {
+                return Ok(view_count);
+            }
+        }
+
+        Err(ParsingError::from("Cant get view count"))
+    }
+
     pub fn get_view_count(&self) -> Result<i32, ParsingError> {
         if self.is_premium_video()? || self.video_info.contains_key("topStandaloneBadge") {
             return Ok(-1);
@@ -330,5 +348,4 @@ impl YTStreamInfoItemExtractor {
         }
         Ok(thumbnails)
     }
-
 }

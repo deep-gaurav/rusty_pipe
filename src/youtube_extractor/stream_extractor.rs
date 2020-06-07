@@ -7,8 +7,8 @@ use super::super::utils::utils::*;
 use super::itag_item::{Itag, ItagType};
 use crate::youtube_extractor::error::ParsingError;
 use failure::Error;
-use std::future::Future;
 use lazy_static::lazy_static;
+use std::future::Future;
 
 const CONTENT: &str = "content";
 
@@ -19,9 +19,7 @@ const DECRYPTION_FUNC_NAME: &str = "decrypt";
 
 const VERIFIED_URL_PARAMS: &str = "&has_verified=1&bpctr=9999999999";
 
-
-
-lazy_static!{
+lazy_static! {
     static ref REGEXES: Vec<&'static str>=vec![
         r###"\b[cs]\s*&&\s*[adf]\.set\([^,]+\s*,\s*encodeURIComponent\s*\(\s*([a-zA-Z0-9$]+)\("###,
         r###"\b[a-zA-Z0-9]+\s*&&\s*[a-zA-Z0-9]+\.set\([^,]+\s*,\s*encodeURIComponent\s*\(\s*([a-zA-Z0-9$]+)\("###,
@@ -39,10 +37,9 @@ lazy_static!{
     ];
 }
 
-
 pub const HARDCODED_CLIENT_VERSION: &str = "2.20200214.04.00";
 
-#[derive(Clone,PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct YTStreamExtractor<D: Downloader> {
     doc: String,
     player_args: Map<String, Value>,
@@ -155,10 +152,10 @@ impl<D: Downloader> YTStreamExtractor<D> {
                             Value::String(url) => String::from(url),
                             _ => {
                                 let cipherstr = {
-                                    if let Value::String(cip) =
-                                        format_data_obj.get("cipher").or(
-                                            format_data_obj.get("signatureCipher")
-                                        ).unwrap_or(&Value::Null)
+                                    if let Value::String(cip) = format_data_obj
+                                        .get("cipher")
+                                        .or(format_data_obj.get("signatureCipher"))
+                                        .unwrap_or(&Value::Null)
                                     {
                                         cip.clone()
                                     } else {
@@ -232,19 +229,14 @@ impl<D: Downloader> YTStreamExtractor<D> {
     }
 
     fn decrypt_signature(encrypted_sig: &str, decryption_code: &str) -> String {
+        println!("encrypted_sig: {:#?}", encrypted_sig);
+        println!("decryption_code {:#?}", decryption_code);
 
-        println!("encrypted_sig: {:#?}",encrypted_sig);
-        println!("decryption_code {:#?}",decryption_code);
-
-        let script = format!(
-            "{};decrypt(\"{}\")",
-            decryption_code,
-            encrypted_sig
-        );
+        let script = format!("{};decrypt(\"{}\")", decryption_code, encrypted_sig);
         let res = D::eval_js(&script);
 
         let result = res.unwrap_or_default();
-        
+
         result
     }
 
@@ -421,9 +413,7 @@ impl<D: Downloader> YTStreamExtractor<D> {
             let rege = fancy_regex::Regex::new(reg).ok()?;
             let capture = rege.captures(player_code).unwrap();
             if let Some(capture) = capture {
-                return capture
-                    .get(1)
-                    .map(|m| m.as_str().to_string());
+                return capture.get(1).map(|m| m.as_str().to_string());
             }
         }
         None

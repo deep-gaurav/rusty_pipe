@@ -12,28 +12,28 @@ use std::collections::HashMap;
 /// https://url.spec.whatwg.org/#fragment-percent-encode-set
 const FRAGMENT: &AsciiSet = &CONTROLS.add(b' ').add(b'"').add(b'<').add(b'>').add(b'`');
 
-#[derive(Clone,PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum YTSearchItem {
     StreamInfoItem(YTStreamInfoItemExtractor),
     ChannelInfoItem(YTChannelInfoItemExtractor),
     PlaylistInfoItem(YTPlaylistInfoItemExtractor),
 }
 
-#[derive(Clone,PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct YTSearchExtractor {
     initial_data: Map<String, Value>,
     query: String,
     page: Option<(Vec<YTSearchItem>, Option<String>)>,
-    p_url: Option<String>
+    p_url: Option<String>,
 }
 
 impl YTSearchExtractor {
     async fn get_initial_data<D: Downloader>(
         downloader: &D,
         url: &str,
-        page_count:&str
+        page_count: &str,
     ) -> Result<Map<String, Value>, ParsingError> {
-        let url = format!("{}&gl=US&pbj=1&page={}", url,page_count);
+        let url = format!("{}&gl=US&pbj=1&page={}", url, page_count);
         let mut headers = HashMap::new();
         headers.insert("X-YouTube-Client-Name".to_string(), "1".to_string());
         headers.insert(
@@ -159,27 +159,28 @@ impl YTSearchExtractor {
         );
         let query = utf8_percent_encode(query, FRAGMENT).to_string();
         if let Some(page_url) = page_url {
-            let initial_data = YTSearchExtractor::get_initial_data(&downloader, &url,&page_url).await?;
+            let initial_data =
+                YTSearchExtractor::get_initial_data(&downloader, &url, &page_url).await?;
 
             Ok(YTSearchExtractor {
                 initial_data,
                 query,
                 page: None,
-                p_url: Some(page_url)
+                p_url: Some(page_url),
             })
         } else {
-            let initial_data = YTSearchExtractor::get_initial_data(&downloader, &url,"1").await?;
+            let initial_data = YTSearchExtractor::get_initial_data(&downloader, &url, "1").await?;
             Ok(YTSearchExtractor {
                 initial_data,
                 query,
                 page: None,
-                p_url: Some("1".to_string())
+                p_url: Some("1".to_string()),
             })
         }
     }
 
     pub async fn get_search_suggestion<D: Downloader>(
-        query:&str,
+        query: &str,
         downloader: &D,
     ) -> Result<Vec<String>, ParsingError> {
         let mut suggestions = vec![];
@@ -189,7 +190,7 @@ impl YTSearchExtractor {
             &jsonp=jp\
             &ds=yt\
             &q={}",
-           query 
+            query
         );
         let resp = D::download(&url).await?;
         let resp = resp[3..resp.len() - 1].to_string();
@@ -243,11 +244,12 @@ impl YTSearchExtractor {
     }
 
     pub fn get_next_page_url(&self) -> Result<Option<String>, ParsingError> {
-        let pu = self.p_url.clone().unwrap_or_default().parse::<u32>().map_err(|e|ParsingError::from(e.to_string()))?;
-        return Ok(
-            Some(
-                format!("{}",pu+1)
-            )
-        );
+        let pu = self
+            .p_url
+            .clone()
+            .unwrap_or_default()
+            .parse::<u32>()
+            .map_err(|e| ParsingError::from(e.to_string()))?;
+        return Ok(Some(format!("{}", pu + 1)));
     }
 }

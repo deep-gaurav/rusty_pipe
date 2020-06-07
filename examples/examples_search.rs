@@ -23,7 +23,8 @@ async fn main() -> Result<(), Error> {
     search_query = encode(&search_query);
 
     let search_extractor = YTSearchExtractor::new(DownloaderExample, &search_query, None).await?;
-    let search_suggestion = YTSearchExtractor::get_search_suggestion(&search_query,&DownloaderExample).await?;
+    let search_suggestion =
+        YTSearchExtractor::get_search_suggestion(&search_query, &DownloaderExample).await?;
 
     println!("Search suggestion {:#?}", search_suggestion);
     let mut items = search_extractor.search_results()?;
@@ -77,7 +78,10 @@ async fn main() -> Result<(), Error> {
                 );
                 println!("View Count: {:#?}", streaminfoitem.get_view_count());
                 println!("Thumbnails:\n {:#?}", streaminfoitem.get_thumbnails());
-                println!("Uploader Thumbnails:\n {:#?}",streaminfoitem.get_uploader_thumbnails());
+                println!(
+                    "Uploader Thumbnails:\n {:#?}",
+                    streaminfoitem.get_uploader_thumbnails()
+                );
 
                 println!();
             }
@@ -145,7 +149,7 @@ struct DownloaderExample;
 
 #[async_trait(?Send)]
 impl Downloader for DownloaderExample {
-    async fn download( url: &str) -> Result<String, ParsingError> {
+    async fn download(url: &str) -> Result<String, ParsingError> {
         println!("query url : {}", url);
         let resp = reqwest::get(url)
             .await
@@ -187,11 +191,11 @@ impl Downloader for DownloaderExample {
         let context = Context::new().expect("Cant create js context");
         // println!("decryption code \n{}",decryption_code);
         // println!("signature : {}",encrypted_sig);
-        println!("jscode \n{}",script);
+        println!("jscode \n{}", script);
         let res = context.eval(script).unwrap_or(quick_js::JsValue::Null);
         // println!("js result : {:?}", result);
         let result = res.into_string().unwrap_or("".to_string());
-        print!("JS result: {}",result);
+        print!("JS result: {}", result);
         Ok(result)
     }
 }

@@ -8,7 +8,7 @@ use crate::youtube_extractor::stream_info_item_extractor::YTStreamInfoItemExtrac
 use serde_json::Value;
 use std::collections::HashMap;
 
-#[derive(Clone,PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct YTPlaylistExtractor {
     init_data: Value,
     playlist_info: Value,

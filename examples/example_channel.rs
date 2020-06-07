@@ -19,7 +19,7 @@ struct DownloaderExample;
 
 #[async_trait(?Send)]
 impl Downloader for DownloaderExample {
-    async fn download( url: &str) -> Result<String, ParsingError> {
+    async fn download(url: &str) -> Result<String, ParsingError> {
         println!("query url : {}", url);
         let resp = reqwest::get(url)
             .await
@@ -61,11 +61,11 @@ impl Downloader for DownloaderExample {
         let context = Context::new().expect("Cant create js context");
         // println!("decryption code \n{}",decryption_code);
         // println!("signature : {}",encrypted_sig);
-        println!("jscode \n{}",script);
+        println!("jscode \n{}", script);
         let res = context.eval(script).unwrap_or(quick_js::JsValue::Null);
         // println!("js result : {:?}", result);
         let result = res.into_string().unwrap_or("".to_string());
-        print!("JS result: {}",result);
+        print!("JS result: {}", result);
         Ok(result)
     }
 }
