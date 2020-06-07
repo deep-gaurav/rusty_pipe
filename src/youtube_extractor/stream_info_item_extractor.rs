@@ -108,6 +108,41 @@ impl YTStreamInfoItemExtractor {
         Ok(false)
     }
 
+    pub fn get_textural_duration(&self)->Result<String, ParsingError>{
+        if self.is_live()? {
+            return Ok("LIVE".to_string());
+        }
+        let mut duration = get_text_from_object(
+            self.video_info
+                .get("lengthText")
+                .ok_or("Cant get lengthText")?,
+            false,
+        )?;
+        if duration.is_none() || duration.clone().unwrap_or_default().is_empty() {
+            for thumbnail_overlay in self
+                .video_info
+                .get("thumbnailOverlays")
+                .unwrap_or(&Value::Null)
+                .as_array()
+                .unwrap_or(&vec![])
+            {
+                if let Some(tr_renderer) =
+                    thumbnail_overlay.get("thumbnailOverlayTimeStatusRenderer")
+                {
+                    duration = get_text_from_object(
+                        tr_renderer.get("text").unwrap_or(&Value::Null),
+                        false,
+                    )?;
+                }
+            }
+        }
+        if duration.is_none() || duration.clone().unwrap_or_default().is_empty() {
+            Err(ParsingError::from("Cant get duration"))
+        } else {
+            Ok(duration.unwrap_or_default())
+        }
+    }
+
     pub fn get_duration(&self) -> Result<i32, ParsingError> {
         if self.is_live()? {
             return Ok(-1);
