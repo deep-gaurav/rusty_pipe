@@ -108,7 +108,7 @@ impl YTStreamInfoItemExtractor {
         Ok(false)
     }
 
-    pub fn get_textural_duration(&self)->Result<String, ParsingError>{
+    pub fn get_textual_duration(&self)->Result<String, ParsingError>{
         if self.is_live()? {
             return Ok("LIVE".to_string());
         }
