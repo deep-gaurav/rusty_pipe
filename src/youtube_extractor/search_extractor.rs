@@ -148,7 +148,6 @@ impl YTSearchExtractor {
 
 impl YTSearchExtractor {
     pub async fn new<D: Downloader>(
-        downloader: D,
         query: &str,
         page_url: Option<String>,
     ) -> Result<YTSearchExtractor, ParsingError> {
@@ -180,7 +179,6 @@ impl YTSearchExtractor {
 
     pub async fn get_search_suggestion<D: Downloader>(
         query: &str,
-        downloader: &D,
     ) -> Result<Vec<String>, ParsingError> {
         let mut suggestions = vec![];
         let url = format!(
