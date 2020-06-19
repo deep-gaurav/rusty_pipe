@@ -17,9 +17,9 @@ use serde_json::Value;
 
 struct DownloaderExample;
 
-#[async_trait]
+#[async_trait(?Send)]
 impl Downloader for DownloaderExample {
-    async fn download(&self, url: &str) -> Result<String, ParsingError> {
+    async fn download(url: &str) -> Result<String, ParsingError> {
         println!("query url : {}", url);
         let resp = reqwest::get(url)
             .await
@@ -38,7 +38,6 @@ impl Downloader for DownloaderExample {
     }
 
     async fn download_with_header(
-        &self,
         url: &str,
         header: HashMap<String, String>,
     ) -> Result<String, ParsingError> {
@@ -55,6 +54,19 @@ impl Downloader for DownloaderExample {
         let res = res.send().await.map_err(|er| er.to_string())?;
         let body = res.text().await.map_err(|er| er.to_string())?;
         Ok(String::from(body))
+    }
+
+    fn eval_js(script: &str) -> Result<String, String> {
+        use quick_js::{Context, JsValue};
+        let context = Context::new().expect("Cant create js context");
+        // println!("decryption code \n{}",decryption_code);
+        // println!("signature : {}",encrypted_sig);
+        println!("jscode \n{}", script);
+        let res = context.eval(script).unwrap_or(quick_js::JsValue::Null);
+        // println!("js result : {:?}", result);
+        let result = res.into_string().unwrap_or("".to_string());
+        print!("JS result: {}", result);
+        Ok(result)
     }
 }
 

@@ -8,6 +8,7 @@ use std::collections::HashMap;
 
 pub static CHANNEL_URL_BASE: &str = "https://www.youtube.com/channel/";
 
+#[derive(Clone, PartialEq)]
 pub struct YTChannelExtractor {
     initial_data: Value,
     video_tab: Value,
@@ -30,7 +31,7 @@ impl YTChannelExtractor {
                 "X-YouTube-Client-Version".to_string(),
                 HARDCODED_CLIENT_VERSION.to_string(),
             );
-            let response = downloader.download_with_header(&url, headers).await?;
+            let response = D::download_with_header(&url, headers).await?;
             let json_response = serde_json::from_str::<Value>(&response)
                 .map_err(|e| ParsingError::from(e.to_string()))?;
             let endpoint = (|| {
@@ -203,7 +204,7 @@ impl YTChannelExtractor {
             "X-YouTube-Client-Version".to_string(),
             HARDCODED_CLIENT_VERSION.to_string(),
         );
-        let response = downloader.download_with_header(&page_url, headers).await?;
+        let response = D::download_with_header(&page_url, headers).await?;
         let json_response = serde_json::from_str::<Value>(&response)
             .map_err(|e| ParsingError::from(e.to_string()))?;
 

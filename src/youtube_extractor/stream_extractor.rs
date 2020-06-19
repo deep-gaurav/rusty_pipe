@@ -7,6 +7,7 @@ use super::super::utils::utils::*;
 use super::itag_item::{Itag, ItagType};
 use crate::youtube_extractor::error::ParsingError;
 use failure::Error;
+use lazy_static::lazy_static;
 use std::future::Future;
 
 const CONTENT: &str = "content";
@@ -18,17 +19,27 @@ const DECRYPTION_FUNC_NAME: &str = "decrypt";
 
 const VERIFIED_URL_PARAMS: &str = "&has_verified=1&bpctr=9999999999";
 
-const DECRYPTION_SIGNATURE_FUNCTION_REGEX: &str =
-    r###"([\w$]+)\s*=\s*function\((\w+)\)\{\s*\2=\s*\2\.split\(""\)\s*;"###;
-const DECRYPTION_SIGNATURE_FUNCTION_REGEX_2: &str =
-    "\\b([\\w$]{2})\\s*=\\s*function\\((\\w+)\\)\\{\\s*\\2=\\s*\\2\\.split\\(\"\"\\)\\s*;";
-const DECRYPTION_AKAMAIZED_STRING_REGEX:&str =
-"yt\\.akamaized\\.net/\\)\\s*\\|\\|\\s*.*?\\s*c\\s*&&\\s*d\\.set\\([^,]+\\s*,\\s*(:encodeURIComponent\\s*\\()([a-zA-Z0-9$]+)\\(";
-const DECRYPTION_AKAMAIZED_SHORT_STRING_REGEX: &str =
-    "\\bc\\s*&&\\s*d\\.set\\([^,]+\\s*,\\s*(:encodeURIComponent\\s*\\()([a-zA-Z0-9$]+)\\(";
+lazy_static! {
+    static ref REGEXES: Vec<&'static str>=vec![
+        r###"\b[cs]\s*&&\s*[adf]\.set\([^,]+\s*,\s*encodeURIComponent\s*\(\s*([a-zA-Z0-9$]+)\("###,
+        r###"\b[a-zA-Z0-9]+\s*&&\s*[a-zA-Z0-9]+\.set\([^,]+\s*,\s*encodeURIComponent\s*\(\s*([a-zA-Z0-9$]+)\("###,
+        r###"\b([a-zA-Z0-9$]{2})\s*=\s*function\(\s*a\s*\)\s*\{\s*a\s*=\s*a\.split\(\s*""\s*\)"###,
+        "([a-zA-Z0-9$]+)\\s*=\\s*function\\(\\s*a\\s*\\)\\s*\\{\\s*a\\s*=\\s*a\\.split\\(\\s*\"\"\\s*\\)",
+        // Obsolete patterns
+        "[\"']signature[\"']\\s*,\\s*([a-zA-Z0-9$]+)\\(",
+        "\\.sig\\|\\|([a-zA-Z0-9$]+)\\(",
+        "yt\\.akamaized\\.net/\\)\\s*\\|\\|\\s*.*?\\s*[cs]\\s*&&\\s*[adf]\\.set\\([^,]+\\s*,\\s*(?:encodeURIComponent\\s*\\()?\\s*([a-zA-Z0-9$]+)\\(",
+        "\\b[cs]\\s*&&\\s*[adf]\\.set\\([^,]+\\s*,\\s*([a-zA-Z0-9$]+)\\(",
+        "\\b[a-zA-Z0-9]+\\s*&&\\s*[a-zA-Z0-9]+\\.set\\([^,]+\\s*,\\s*([a-zA-Z0-9$]+)\\(",
+        "\\bc\\s*&&\\s*a\\.set\\([^,]+\\s*,\\s*\\([^)]*\\)\\s*\\(\\s*([a-zA-Z0-9$]+)\\(",
+        "\\bc\\s*&&\\s*[a-zA-Z0-9]+\\.set\\([^,]+\\s*,\\s*\\([^)]*\\)\\s*\\(\\s*([a-zA-Z0-9$]+)\\(",
+        "\\bc\\s*&&\\s*[a-zA-Z0-9]+\\.set\\([^,]+\\s*,\\s*\\([^)]*\\)\\s*\\(\\s*([a-zA-Z0-9$]+)\\("
+    ];
+}
 
 pub const HARDCODED_CLIENT_VERSION: &str = "2.20200214.04.00";
 
+#[derive(Clone, PartialEq)]
 pub struct YTStreamExtractor<D: Downloader> {
     doc: String,
     player_args: Map<String, Value>,
@@ -79,7 +90,7 @@ impl<D: Downloader> YTStreamExtractor<D> {
             video_id
         );
 
-        let doc = downloader.download(&url);
+        let doc = D::download(&url);
         let initial_data = YTStreamExtractor::<D>::get_initial_data(&url, &downloader);
         let (doc, initial_data) = try_join!(doc, initial_data)?;
         if initial_data.1 {
@@ -141,8 +152,10 @@ impl<D: Downloader> YTStreamExtractor<D> {
                             Value::String(url) => String::from(url),
                             _ => {
                                 let cipherstr = {
-                                    if let Value::String(cip) =
-                                        format_data_obj.get("cipher").unwrap_or(&Value::Null)
+                                    if let Value::String(cip) = format_data_obj
+                                        .get("cipher")
+                                        .or(format_data_obj.get("signatureCipher"))
+                                        .unwrap_or(&Value::Null)
                                     {
                                         cip.clone()
                                     } else {
@@ -210,24 +223,20 @@ impl<D: Downloader> YTStreamExtractor<D> {
                 format!("https://youtube.com{}", player_url)
             }
         };
-        let player_code = downloader.download(&player_url).await?;
+        let player_code = D::download(&player_url).await?;
         let player_code = YTStreamExtractor::<D>::load_decryption_code(&player_code)?;
         Ok(player_code)
     }
 
     fn decrypt_signature(encrypted_sig: &str, decryption_code: &str) -> String {
-        use quick_js::{Context, JsValue};
-        let context = Context::new().expect("Cant create js context");
-        // println!("decryption code \n{}",decryption_code);
-        // println!("signature : {}",encrypted_sig);
-        context.eval(decryption_code).expect(&format!(
-            "Cant add decryption code to context\n decryption code \n{}",
-            decryption_code
-        ));
-        let result = context.call_function("decrypt", vec![encrypted_sig]);
-        // println!("js result : {:?}", result);
-        let result = result.expect("Cant exec decrypt");
-        let result = result.into_string().expect("Result not string");
+        println!("encrypted_sig: {:#?}", encrypted_sig);
+        println!("decryption_code {:#?}", decryption_code);
+
+        let script = format!("{};decrypt(\"{}\")", decryption_code, encrypted_sig);
+        let res = D::eval_js(&script);
+
+        let result = res.unwrap_or_default();
+
         result
     }
 
@@ -273,7 +282,7 @@ impl<D: Downloader> YTStreamExtractor<D> {
             HARDCODED_CLIENT_VERSION.to_string(),
         );
         let url = format!("{}&pbj=1", url);
-        let data = downloader.download_with_header(&url, headers).await?;
+        let data = D::download_with_header(&url, headers).await?;
         let initial_ajax_json: Value = serde_json::from_str(&data).map_err(|e| e.to_string())?;
         let initial_ajax_json = initial_ajax_json
             .as_array()
@@ -398,20 +407,13 @@ impl<D: Downloader> YTStreamExtractor<D> {
     }
 
     fn get_decryption_func_name(player_code: &str) -> Option<String> {
-        let decryption_func_name_regexes = vec![
-            DECRYPTION_SIGNATURE_FUNCTION_REGEX_2,
-            DECRYPTION_SIGNATURE_FUNCTION_REGEX,
-            DECRYPTION_AKAMAIZED_SHORT_STRING_REGEX,
-            DECRYPTION_AKAMAIZED_STRING_REGEX,
-        ];
+        // let decryption_func_name_regexes = REGEXES;
         use fancy_regex::Regex;
-        for reg in decryption_func_name_regexes {
+        for reg in REGEXES.iter() {
             let rege = fancy_regex::Regex::new(reg).ok()?;
             let capture = rege.captures(player_code).unwrap();
             if let Some(capture) = capture {
-                return capture
-                    .get(1)
-                    .map(|m| m.as_str().to_string());
+                return capture.get(1).map(|m| m.as_str().to_string());
             }
         }
         None

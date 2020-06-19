@@ -4,7 +4,7 @@ use crate::youtube_extractor::error::ParsingError;
 use crate::youtube_extractor::stream_extractor::Thumbnail;
 use serde_json::{Map, Value};
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct YTPlaylistInfoItemExtractor {
     pub playlist_info: Map<String, Value>,
 }
@@ -75,16 +75,7 @@ impl YTPlaylistInfoItemExtractor {
     }
 
     pub fn get_stream_count(&self) -> Result<i32, ParsingError> {
-        match get_text_from_object(
-            self.playlist_info.get("videoCount").unwrap_or(&Value::Null),
-            false,
-        ) {
-            Ok(videos) => {
-                // println!("video count {:#?}",videos);
-                Ok(remove_non_digit_chars::<i32>(&videos.unwrap_or_default())
-                    .map_err(|e| ParsingError::from(e.to_string()))?)
-            }
-            Err(err) => Err(err),
-        }
+        let vid_tex = self.playlist_info.get("videoCount").unwrap_or(&Value::Null).as_str().unwrap_or_default();
+        Ok(remove_non_digit_chars::<i32>(vid_tex).map_err(|e|ParsingError::from(e.to_string()))?)
     }
 }
