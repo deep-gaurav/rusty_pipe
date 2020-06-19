@@ -18,7 +18,6 @@ pub struct YTChannelExtractor {
 impl YTChannelExtractor {
     async fn get_initial_data<D: Downloader>(
         id: &str,
-        downloader: &D,
     ) -> Result<Value, ParsingError> {
         let mut url = format!("{}{}/videos?pbj=1&view=0&flow=grid", CHANNEL_URL_BASE, id);
 
@@ -138,12 +137,11 @@ impl YTChannelExtractor {
 
     pub async fn new<D: Downloader>(
         channel_id: &str,
-        downloader: D,
         page_url: Option<String>,
     ) -> Result<Self, ParsingError> {
         if let Some(page_url) = page_url {
-            let initial_data = YTChannelExtractor::get_initial_data(channel_id, &downloader);
-            let page = YTChannelExtractor::get_page(&page_url, &downloader);
+            let initial_data = YTChannelExtractor::get_initial_data::<D>(channel_id);
+            let page = YTChannelExtractor::get_page::<D>(&page_url);
             use futures::try_join;
             let (initial_data, page) = try_join!(initial_data, page)?;
             let video_tab = YTChannelExtractor::get_video_tab(&initial_data)?;
@@ -155,7 +153,7 @@ impl YTChannelExtractor {
             })
         } else {
             let initial_data =
-                YTChannelExtractor::get_initial_data(channel_id, &downloader).await?;
+                YTChannelExtractor::get_initial_data::<D>(channel_id).await?;
             let video_tab = YTChannelExtractor::get_video_tab(&initial_data)?;
             Ok(YTChannelExtractor {
                 initial_data,
@@ -196,7 +194,6 @@ impl YTChannelExtractor {
 
     async fn get_page<D: Downloader>(
         page_url: &str,
-        downloader: &D,
     ) -> Result<(Vec<YTStreamInfoItemExtractor>, Option<String>), ParsingError> {
         let mut headers = HashMap::new();
         headers.insert("X-YouTube-Client-Name".to_string(), "1".to_string());

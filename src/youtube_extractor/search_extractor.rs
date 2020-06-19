@@ -29,7 +29,6 @@ pub struct YTSearchExtractor {
 
 impl YTSearchExtractor {
     async fn get_initial_data<D: Downloader>(
-        downloader: &D,
         url: &str,
         page_count: &str,
     ) -> Result<Map<String, Value>, ParsingError> {
@@ -160,7 +159,7 @@ impl YTSearchExtractor {
         let query = utf8_percent_encode(query, FRAGMENT).to_string();
         if let Some(page_url) = page_url {
             let initial_data =
-                YTSearchExtractor::get_initial_data(&downloader, &url, &page_url).await?;
+                YTSearchExtractor::get_initial_data::<D>( &url, &page_url).await?;
 
             Ok(YTSearchExtractor {
                 initial_data,
@@ -169,7 +168,7 @@ impl YTSearchExtractor {
                 p_url: Some(page_url),
             })
         } else {
-            let initial_data = YTSearchExtractor::get_initial_data(&downloader, &url, "1").await?;
+            let initial_data = YTSearchExtractor::get_initial_data::<D>( &url, "1").await?;
             Ok(YTSearchExtractor {
                 initial_data,
                 query,

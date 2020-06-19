@@ -87,7 +87,7 @@ async fn main() -> Result<(), Error> {
         .read_line(&mut channel_id)
         .expect("Input failed");
     channel_id = channel_id.trim().to_string();
-    let channel_extractor = YTChannelExtractor::new(&channel_id, DownloaderExample, None).await?;
+    let channel_extractor = YTChannelExtractor::new::<DownloaderExample>(&channel_id,  None).await?;
     println!("Channel name {:#?}", channel_extractor.get_name());
     println!(
         "Channel Thumbnails \n{:#?}",
@@ -107,7 +107,7 @@ async fn main() -> Result<(), Error> {
 
     while let Some(next_page) = next_page_url.clone() {
         let extractor =
-            YTChannelExtractor::new(&channel_id, DownloaderExample, Some(next_page)).await?;
+            YTChannelExtractor::new::<DownloaderExample>(&channel_id,  Some(next_page)).await?;
         // print_videos(extractor.get_videos()?);
         next_page_url = extractor.get_next_page_url()?;
         videos.append(&mut channel_extractor.get_videos()?);
