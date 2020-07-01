@@ -9,6 +9,7 @@ use crate::youtube_extractor::error::ParsingError;
 use failure::Error;
 use lazy_static::lazy_static;
 use std::future::Future;
+use crate::youtube_extractor::search_extractor::YTSearchItem;
 
 const CONTENT: &str = "content";
 
@@ -789,4 +790,18 @@ impl<D: Downloader> YTStreamExtractor<D> {
 
         Ok(audio_streams)
     }
+
+    pub fn get_related(&self) -> Result<Vec<YTSearchItem>,ParsingError>{
+        let results = (||self.initial_data.get("contents")?
+        .get("twoColumnWatchNextResults")?
+        .get("secondaryResults")?
+        .get("secondaryResults")?
+        .get("results")?
+        .as_array().cloned())().unwrap_or_default();
+        use crate::youtube_extractor::search_extractor::YTSearchExtractor;
+        let items = YTSearchExtractor::collect_streams_from(&results);
+        items
+    }
+
+
 }
