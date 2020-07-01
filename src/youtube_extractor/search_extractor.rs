@@ -54,13 +54,13 @@ impl YTSearchExtractor {
         Ok(resp_json)
     }
 
-    fn collect_streams_from(videos: &Vec<Value>) -> Result<Vec<YTSearchItem>, ParsingError> {
+    pub fn collect_streams_from(videos: &Vec<Value>) -> Result<Vec<YTSearchItem>, ParsingError> {
         let mut search_items = vec![];
         for item in videos {
             if item.get("backgroundPromoRenderer").is_some() {
                 return Err(ParsingError::from("Nothing found"));
             }
-            if let Some(el) = item.get("videoRenderer").map(|f| f.as_object()) {
+            if let Some(el) = item.get("videoRenderer").or(item.get("compactVideoRenderer")).map(|f| f.as_object()) {
                 if let Some(vid_info) = el {
                     search_items.push(YTSearchItem::StreamInfoItem(YTStreamInfoItemExtractor {
                         video_info: vid_info.to_owned(),
