@@ -61,7 +61,7 @@ pub struct YTStreamExtractor<D: Downloader> {
 pub struct StreamItem {
     pub url: Option<String>,
     pub itag: u32,
-    pub approxDurationMs: String,
+    pub approxDurationMs: Option<String>,
     pub audioChannels: Option<u32>,
     pub audioQuality: Option<String>,
     pub audioSampleRate: Option<String>,
@@ -192,9 +192,9 @@ impl<D: Downloader> YTStreamExtractor<D> {
                                 }
                             },
                             Err(err) => {
-                                return Err(ParsingError::ParsingError {
-                                    cause: err.to_string(),
-                                })
+                                // return Err(ParsingError::ParsingError {
+                                //     cause: err.to_string(),
+                                // })
                             }
                         }
                     // url_and_itags.insert(stream_url, itag_item);
