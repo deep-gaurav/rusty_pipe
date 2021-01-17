@@ -18,7 +18,7 @@ use serde_json::Value;
 
 struct DownloaderExample;
 
-#[async_trait(?Send)]
+#[async_trait()]
 impl Downloader for DownloaderExample {
     async fn download(url: &str) -> Result<String, ParsingError> {
         println!("query url : {}", url);

@@ -14,6 +14,7 @@ use urlencoding::encode;
 
 #[tokio::main]
 async fn main() -> Result<(), failure::Error> {
+    pretty_env_logger::init();
     static APP_USER_AGENT: &str =
         "Mozilla/5.0 (X11; Linux x86_64; rv:68.0) Gecko/20100101 Firefox/43.0";
 
@@ -23,7 +24,7 @@ async fn main() -> Result<(), failure::Error> {
     let downloader = DownloaderExample {};
     // let body = D::download(url).await?;
 
-    let mut stream_extractor = YTStreamExtractor::new("HHEhwU4KM2c", downloader).await?;
+    let mut stream_extractor = YTStreamExtractor::new("09R8_2nJtjg", downloader).await?;
     let video_streams = stream_extractor.get_video_stream()?;
     println!("AUDIO/VIDEO STREAMS \n");
     println!("{:#?}", video_streams);
@@ -62,7 +63,7 @@ async fn main() -> Result<(), failure::Error> {
 
 struct DownloaderExample {}
 
-#[async_trait(?Send)]
+#[async_trait()]
 impl Downloader for DownloaderExample {
     async fn download(url: &str) -> Result<String, ParsingError> {
         println!("query url : {}", url);

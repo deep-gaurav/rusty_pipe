@@ -17,10 +17,11 @@ async-trait = "0.1.30"
 serde = { version = "1.0", features = ["derive"] }
 futures = "0.3.4"
 failure = "0.1.8"
-
+log = "0.4"
 
 [dev-dependencies]
 reqwest = { version = "0.10.4", features = [ "json"] }
 urlencoding = "1.0.0"
 tokio = { version = "0.2", features = ["macros"] }
 quick-js = "0.3.0"
+pretty_env_logger = "0.3"

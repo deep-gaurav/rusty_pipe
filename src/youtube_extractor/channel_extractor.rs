@@ -3,6 +3,7 @@ use crate::utils::utils::{fix_thumbnail_url, get_text_from_object};
 use crate::youtube_extractor::error::ParsingError;
 use crate::youtube_extractor::stream_extractor::{Thumbnail, HARDCODED_CLIENT_VERSION};
 use crate::youtube_extractor::stream_info_item_extractor::YTStreamInfoItemExtractor;
+use futures::try_join;
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 
