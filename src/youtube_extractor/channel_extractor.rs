@@ -17,9 +17,7 @@ pub struct YTChannelExtractor {
 }
 
 impl YTChannelExtractor {
-    async fn get_initial_data<D: Downloader>(
-        id: &str,
-    ) -> Result<Value, ParsingError> {
+    async fn get_initial_data<D: Downloader>(id: &str) -> Result<Value, ParsingError> {
         let mut url = format!("{}{}/videos?pbj=1&view=0&flow=grid", CHANNEL_URL_BASE, id);
 
         let mut level = 0;
@@ -153,8 +151,7 @@ impl YTChannelExtractor {
                 page: Some(page),
             })
         } else {
-            let initial_data =
-                YTChannelExtractor::get_initial_data::<D>(channel_id).await?;
+            let initial_data = YTChannelExtractor::get_initial_data::<D>(channel_id).await?;
             let video_tab = YTChannelExtractor::get_video_tab(&initial_data)?;
             Ok(YTChannelExtractor {
                 initial_data,

@@ -75,7 +75,15 @@ impl YTPlaylistInfoItemExtractor {
     }
 
     pub fn get_stream_count(&self) -> Result<i32, ParsingError> {
-        let vid_tex = self.playlist_info.get("videoCount").unwrap_or(&Value::Null).as_str().unwrap_or_default();
-        Ok(remove_non_digit_chars::<i32>(vid_tex).map_err(|e|ParsingError::from(e.to_string()))?)
+        let vid_tex = self
+            .playlist_info
+            .get("videoCount")
+            .unwrap_or(&Value::Null)
+            .as_str()
+            .unwrap_or_default();
+        Ok(
+            remove_non_digit_chars::<i32>(vid_tex)
+                .map_err(|e| ParsingError::from(e.to_string()))?,
+        )
     }
 }

@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 use super::super::utils::utils::*;
 use super::itag_item::{Itag, ItagType};
+use crate::utils::utils;
 use crate::youtube_extractor::error::ParsingError;
 use crate::youtube_extractor::search_extractor::YTSearchItem;
 use failure::Error;
@@ -28,6 +29,10 @@ lazy_static! {
         "yt\\.akamaized\\.net/\\)\\s*\\|\\|\\s*.*?\\s*c\\s*&&\\s*d\\.set\\([^,]+\\s*,\\s*(:encodeURIComponent\\s*\\()([a-zA-Z0-9$]+)\\(",
         "\\bc\\s*&&\\s*d\\.set\\([^,]+\\s*,\\s*(:encodeURIComponent\\s*\\()([a-zA-Z0-9$]+)\\("
     ];
+
+    static ref N_PARAM_FUNC_REGEX:&'static str = "b=a\\.get\\(\"n\"\\)\\)&&\\(b=(\\w+)\\(b\\),a\\.set\\(\"n\",b\\)";
+
+    static ref N_PARAM_REGEX:&'static str ="[&?]n=([^&]+)";
 }
 
 pub const HARDCODED_CLIENT_VERSION: &str = "2.20200214.04.00";
@@ -38,7 +43,8 @@ pub struct YTStreamExtractor<D: Downloader> {
     // player_args: Map<String, Value>,
     // video_info_page:Map<String,String>,
     player_response: Map<String, Value>,
-    player_code: String,
+    player_decryption_code: String,
+    player_n_param_decryption_code: String,
     video_id: String,
 
     initial_data: Value,
@@ -99,37 +105,38 @@ impl<D: Downloader> YTStreamExtractor<D> {
         let secondary_info_renderer =
             YTStreamExtractor::<D>::get_secondary_info_renderer(&initial_data)?;
         if let Some(response) = initial_response {
-
-            if Self::is_decryption_needed(&response).unwrap_or(false){
+            if Self::is_decryption_needed(&response).unwrap_or(false) {
                 let player_url = Self::get_player_js_url(video_id, &downloader).await?;
                 let player_code =
-                YTStreamExtractor::<D>::get_player_code(&player_url, &downloader).await?;
-                Ok(YTStreamExtractor {
-                    player_response:response,
-                    downloader,
-                    player_code,
-                    initial_data,
-                    primary_info_renderer,
-                    secondary_info_renderer,
-                    doc: String::from(doc),
-                    video_id: String::from(video_id),
-                })
-            }else{
-
+                    YTStreamExtractor::<D>::get_player_code(&player_url, &downloader).await?;
+                let player_decryption_code = Self::load_decryption_code(&player_code)?;
+                let player_n_param_decryption_code =
+                    Self::load_n_param_decryption_code(&player_code)?;
                 Ok(YTStreamExtractor {
                     player_response: response,
                     downloader,
-                    player_code: "".to_owned(),
+                    player_decryption_code,
                     initial_data,
                     primary_info_renderer,
                     secondary_info_renderer,
                     doc: String::from(doc),
                     video_id: String::from(video_id),
+                    player_n_param_decryption_code,
+                })
+            } else {
+                Ok(YTStreamExtractor {
+                    player_response: response,
+                    downloader,
+                    player_decryption_code: "".to_owned(),
+                    initial_data,
+                    primary_info_renderer,
+                    secondary_info_renderer,
+                    doc: String::from(doc),
+                    video_id: String::from(video_id),
+                    player_n_param_decryption_code: "".to_owned(),
                 })
             }
-            
         } else {
-
             // OLD METHOD
             let player_config = YTStreamExtractor::<D>::get_player_config(&doc)
                 .ok_or("cannot get player_config".to_string())?;
@@ -146,10 +153,13 @@ impl<D: Downloader> YTStreamExtractor<D> {
                 .ok_or("Cant get player url".to_owned())?;
             let player_code =
                 YTStreamExtractor::<D>::get_player_code(&player_url, &downloader).await?;
+            let player_decryption_code = Self::load_decryption_code(&player_code)?;
+            let player_n_param_decryption_code = Self::load_n_param_decryption_code(&player_code)?;
             Ok(YTStreamExtractor {
                 player_response,
                 downloader,
-                player_code,
+                player_decryption_code,
+                player_n_param_decryption_code,
                 initial_data,
                 primary_info_renderer,
                 secondary_info_renderer,
@@ -158,8 +168,6 @@ impl<D: Downloader> YTStreamExtractor<D> {
             })
         }
     }
-
-    
 
     fn is_decryption_needed(player_response: &Map<String, Value>) -> Result<bool, ParsingError> {
         let streaming_data = player_response.get("streamingData").unwrap_or(&Value::Null);
@@ -179,7 +187,6 @@ impl<D: Downloader> YTStreamExtractor<D> {
                 Ok(false)
             }
         } else {
-            
             Err(ParsingError::ParsingError {
                 cause: "Streaming data not found in player response".to_string(),
             })
@@ -191,6 +198,7 @@ impl<D: Downloader> YTStreamExtractor<D> {
         itag_type_wanted: ItagType,
         player_response: &Map<String, Value>,
         decryption_code: &str,
+        n_param_decryption_code: &str,
     ) -> Result<HashMap<String, StreamItem>, ParsingError> {
         let mut url_and_itags = HashMap::new();
         let streaming_data = player_response.get("streamingData").unwrap_or(&Value::Null);
@@ -203,6 +211,7 @@ impl<D: Downloader> YTStreamExtractor<D> {
                 for format_data in formats {
                     if let Value::Object(format_data_obj) = format_data {
                         // println!("format data {:#?}",format_data);
+
                         let stream_url = match format_data_obj.get("url").unwrap_or(&Value::Null) {
                             Value::String(url) => String::from(url),
                             _ => {
@@ -229,6 +238,8 @@ impl<D: Downloader> YTStreamExtractor<D> {
                                 )
                             }
                         };
+                        let stream_url =
+                            Self::apply_nparam_decryption(&stream_url, n_param_decryption_code);
                         match serde_json::from_value::<StreamItem>(format_data.clone()) {
                             Ok(stream_item) => match itag_type_wanted {
                                 ItagType::VideoOnly => {
@@ -268,6 +279,28 @@ impl<D: Downloader> YTStreamExtractor<D> {
         Ok(url_and_itags)
     }
 
+    pub fn parse_n_param(url: &str) -> Option<String> {
+        Self::match_group1(&N_PARAM_REGEX, url).ok()
+    }
+
+    pub fn decrypt_n_param(n_param: &str, decryption_code: &str) -> String {
+        Self::decrypt_signature(n_param, decryption_code)
+    }
+
+    pub fn replace_n_param(url: &str, old_param: &str, new_param: &str) -> String {
+        log::info!("Replace param {} -> {}", old_param, new_param);
+        url.replace(old_param, new_param)
+    }
+
+    pub fn apply_nparam_decryption(url: &str, decryption_code: &str) -> String {
+        if let Some(old_param) = Self::parse_n_param(url) {
+            let new_param = Self::decrypt_n_param(&old_param, decryption_code);
+            Self::replace_n_param(url, &old_param, &new_param)
+        } else {
+            url.to_string()
+        }
+    }
+
     // pub fn get_video_streams()
 
     pub async fn get_player_code(player_url: &str, downloader: &D) -> Result<String, ParsingError> {
@@ -279,7 +312,6 @@ impl<D: Downloader> YTStreamExtractor<D> {
             }
         };
         let player_code = D::download(&player_url).await?;
-        let player_code = YTStreamExtractor::<D>::load_decryption_code(&player_code)?;
         Ok(player_code)
     }
 
@@ -314,11 +346,11 @@ impl<D: Downloader> YTStreamExtractor<D> {
         None
     }
 
-    fn fix_player_url(url: &str)->String{
+    fn fix_player_url(url: &str) -> String {
         let mut player_url = url.to_string();
         if player_url.starts_with("//") {
             player_url = HTTPS.to_owned() + &player_url;
-        } else if player_url.starts_with("/"){
+        } else if player_url.starts_with("/") {
             player_url = HTTPS.to_owned() + "//www.youtube.com" + &player_url;
         }
         player_url.to_string()
@@ -361,9 +393,23 @@ impl<D: Downloader> YTStreamExtractor<D> {
         Ok(initial_ajax_json)
     }
 
+    async fn get_player_js_url_iframeapi(downloader: &D) -> Result<String, ParsingError> {
+        let iframurl = "https://www.youtube.com/iframe_api";
+        let body = D::download(iframurl).await?;
+        let hashPattern = "player\\\\\\/([a-z0-9]{8})\\\\\\/";
+        let hash = YTStreamExtractor::<D>::match_group1(hashPattern, &body)?;
+        Ok(format!(
+            "https://www.youtube.com/s/player/{}/player_ias.vflset/en_US/base.js",
+            hash
+        ))
+    }
 
-    async fn get_player_js_url(video_id: &str, downloader: &D) ->Result<String, ParsingError>{
-        let embed_url = format!("https://www.youtube.com/embed/{}",video_id);
+    async fn get_player_js_url(video_id: &str, downloader: &D) -> Result<String, ParsingError> {
+        let player_url_c = Self::get_player_js_url_iframeapi(downloader).await;
+        if let Ok(url) = player_url_c {
+            return Ok(url);
+        }
+        let embed_url = format!("https://www.youtube.com/embed/{}", video_id);
         let mut headers = HashMap::new();
         headers.insert("X-YouTube-Client-Name".to_string(), "1".to_string());
         headers.insert(
@@ -381,9 +427,9 @@ impl<D: Downloader> YTStreamExtractor<D> {
             }
             Err(_) => {
                 let srcreg = r###"script.*src\s*="(.*)"\s*.*name\s*=\s*"player_ias\/base""###;
-                let url =Self::match_group1(srcreg, &data);
-                let url = url.and_then(|url|Ok(Self::fix_player_url(&url)));
-                log::debug!("Player url {:#?}",url);
+                let url = Self::match_group1(srcreg, &data);
+                let url = url.and_then(|url| Ok(Self::fix_player_url(&url)));
+                log::debug!("Player url {:#?}", url);
                 url
             }
         }
@@ -511,27 +557,99 @@ impl<D: Downloader> YTStreamExtractor<D> {
             helper_object, decryption_func, caller_function
         ))
     }
+    fn load_n_param_decryption_code(player_code: &str) -> Result<String, ParsingError> {
+        let decryption_func_name =
+            YTStreamExtractor::<D>::get_n_param_decryption_func_name(player_code).ok_or(
+                ParsingError::parsing_error_from_str("Cant find decryption function"),
+            )?;
+
+        // println!("Decryption func name {}", decryption_func_name);
+
+        let decryption_func =
+            Self::get_n_param_decryption_function(player_code, &decryption_func_name)
+                .ok_or(ParsingError::from("Cant get n param decryption function"))?;
+
+        let caller_function = format!(
+            "function {}(a){{return {}(a);}}",
+            DECRYPTION_FUNC_NAME, decryption_func_name
+        );
+
+        Ok(format!("{}{}", decryption_func, caller_function))
+    }
 
     fn get_decryption_func_name(player_code: &str) -> Option<String> {
         // let decryption_func_name_regexes = REGEXES;
         // use fancy_regex::Regex;
         for reg in REGEXES.iter() {
-            let rege = fancy_regex::Regex::new(reg).ok()?;
-            let capture = rege.captures(player_code).unwrap();
+            let rege = pcre2::bytes::Regex::new(reg).ok()?;
+            let capture = rege.captures(player_code.as_bytes()).unwrap();
             if let Some(capture) = capture {
-                return capture.get(1).map(|m| m.as_str().to_string());
+                return capture.get(1).map(|m| {
+                    std::str::from_utf8(m.as_bytes())
+                        .expect("Not utf8")
+                        .to_string()
+                });
             }
         }
         None
     }
 
+    fn get_n_param_decryption_func_name(player_code: &str) -> Option<String> {
+        // let decryption_func_name_regexes = REGEXES;
+        // use fancy_regex::Regex;
+        for reg in [&N_PARAM_FUNC_REGEX].iter() {
+            let rege = pcre2::bytes::Regex::new(reg).ok()?;
+            let capture = rege.captures(player_code.as_bytes()).unwrap();
+            if let Some(capture) = capture {
+                return capture.get(1).map(|m| {
+                    std::str::from_utf8(m.as_bytes())
+                        .expect("Not utf8")
+                        .to_string()
+                });
+            }
+        }
+        None
+    }
+
+    fn get_n_param_decryption_function(player_code: &str, function_name: &str) -> Option<String> {
+        Self::get_n_param_decryption_function_name_paranthesis(player_code, function_name).or(
+            Self::get_n_param_decryption_func_name_regex(player_code, function_name),
+        )
+    }
+    fn get_n_param_decryption_function_name_paranthesis(
+        player_code: &str,
+        function_name: &str,
+    ) -> Option<String> {
+        let function_base = format!("{}=function", function_name);
+        Some(format!(
+            "{}{};",
+            function_base,
+            utils::match_to_closing_paranthesis(player_code, &function_base)?
+        ))
+    }
+    fn get_n_param_decryption_func_name_regex(
+        player_code: &str,
+        function_name: &str,
+    ) -> Option<String> {
+        let function_pattern = format!("{}=function(.*?}};)\n", function_name);
+        Some(format!(
+            "function {}{}",
+            function_name,
+            Self::match_group1(&function_pattern, player_code).ok()?
+        ))
+    }
+
     fn match_group1(reg: &str, text: &str) -> Result<String, ParsingError> {
-        let rege = fancy_regex::Regex::new(reg).expect("Regex is wrong");
-        let capture = rege.captures(text).map_err(|e| e.to_string())?;
+        let rege = pcre2::bytes::Regex::new(reg).expect("Regex is wrong");
+        let capture = rege.captures(text.as_bytes()).map_err(|e| e.to_string())?;
         if let Some(capture) = capture {
             return capture
                 .get(1)
-                .map(|m| m.as_str().to_string())
+                .map(|m| {
+                    std::str::from_utf8(m.as_bytes())
+                        .expect("not utf8")
+                        .to_string()
+                })
                 .ok_or(ParsingError::parsing_error_from_str("group 1 not found"));
         }
         Err(ParsingError::parsing_error_from_str("regex not match"))
@@ -850,7 +968,8 @@ impl<D: Downloader> YTStreamExtractor<D> {
             FORMATS,
             ItagType::Video,
             &self.player_response,
-            &self.player_code,
+            &self.player_decryption_code,
+            &self.player_n_param_decryption_code,
         )? {
             let itag = entry.1;
             video_streams.push(StreamItem {
@@ -867,7 +986,8 @@ impl<D: Downloader> YTStreamExtractor<D> {
             ADAPTIVE_FORMATS,
             ItagType::VideoOnly,
             &self.player_response,
-            &self.player_code,
+            &self.player_decryption_code,
+            &self.player_n_param_decryption_code,
         )? {
             let itag = entry.1;
             video_streams.push(StreamItem {
@@ -884,7 +1004,8 @@ impl<D: Downloader> YTStreamExtractor<D> {
             ADAPTIVE_FORMATS,
             ItagType::Audio,
             &self.player_response,
-            &self.player_code,
+            &self.player_decryption_code,
+            &self.player_n_param_decryption_code,
         )? {
             let itag = entry.1;
             audio_streams.push(StreamItem {

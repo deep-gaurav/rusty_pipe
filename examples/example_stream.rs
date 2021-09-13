@@ -25,17 +25,17 @@ async fn main() -> Result<(), failure::Error> {
     // let body = D::download(url).await?;
 
     let mut stream_extractor = YTStreamExtractor::new("09R8_2nJtjg", downloader).await?;
-    let video_streams = stream_extractor.get_video_stream()?;
-    println!("AUDIO/VIDEO STREAMS \n");
-    println!("{:#?}", video_streams);
+    // let video_streams = stream_extractor.get_video_stream()?;
+    // println!("AUDIO/VIDEO STREAMS \n");
+    // println!("{:#?}", video_streams);
 
     let audio_streams = stream_extractor.get_audio_streams()?;
     println!("AUDIO ONLY STREAMS \n");
     println!("{:#?}", audio_streams);
 
-    let video_only_streams = stream_extractor.get_video_only_stream()?;
-    println!("VIDEO ONLY STREAMS \n");
-    println!("{:#?}", video_only_streams);
+    // let video_only_streams = stream_extractor.get_video_only_stream()?;
+    // println!("VIDEO ONLY STREAMS \n");
+    // println!("{:#?}", video_only_streams);
 
     let thumbnails = stream_extractor.get_video_thumbnails();
     println!("\nTHUMBNAILS");

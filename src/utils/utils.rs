@@ -188,3 +188,28 @@ pub fn get_text_from_object(
         return Ok(None);
     }
 }
+
+pub fn match_to_closing_paranthesis(string: &str, start: &str) -> Option<String> {
+    // let string = string.to_string();
+    let start_index = string.find(start)?;
+    let start_index = start_index + start.len();
+    let mut end_index = start_index;
+    while string.chars().nth(end_index)? != '{' {
+        end_index += 1;
+    }
+    end_index += 1;
+    let mut open_paranthesis = 1;
+    while open_paranthesis > 0 {
+        match string.chars().nth(end_index)? {
+            '{' => {
+                open_paranthesis += 1;
+            }
+            '}' => {
+                open_paranthesis -= 1;
+            }
+            _ => {}
+        }
+        end_index += 1;
+    }
+    Some(string.to_string()[start_index..end_index].to_string())
+}
