@@ -316,8 +316,8 @@ impl<D: Downloader> YTStreamExtractor<D> {
     }
 
     fn decrypt_signature(encrypted_sig: &str, decryption_code: &str) -> String {
-        println!("encrypted_sig: {:#?}", encrypted_sig);
-        println!("decryption_code {:#?}", decryption_code);
+        // println!("encrypted_sig: {:#?}", encrypted_sig);
+        // println!("decryption_code {:#?}", decryption_code);
 
         let script = format!("{};decrypt(\"{}\")", decryption_code, encrypted_sig);
         let res = D::eval_js(&script);
