@@ -11,7 +11,7 @@ pub trait Downloader {
         url: &str,
         header: HashMap<String, String>,
     ) -> Result<String, ParsingError>;
-    fn eval_js(script: &str) -> Result<String, String>;
+    async fn eval_js(script: &str) -> Result<String, String>;
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -22,5 +22,5 @@ pub trait Downloader {
         url: &str,
         header: HashMap<String, String>,
     ) -> Result<String, ParsingError>;
-    fn eval_js(script: &str) -> Result<String, String>;
+    async fn eval_js(script: &str) -> Result<String, String>;
 }

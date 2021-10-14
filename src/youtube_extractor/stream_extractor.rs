@@ -193,7 +193,7 @@ impl<D: Downloader> YTStreamExtractor<D> {
         }
     }
 
-    fn get_itags(
+    async fn get_itags(
         streaming_data_key: &str,
         itag_type_wanted: ItagType,
         player_response: &Map<String, Value>,
@@ -234,12 +234,12 @@ impl<D: Downloader> YTStreamExtractor<D> {
                                     &YTStreamExtractor::<D>::decrypt_signature(
                                         cipher.get("s").unwrap_or(&"".to_owned()),
                                         decryption_code
-                                    )
+                                    ).await
                                 )
                             }
                         };
                         let stream_url =
-                            Self::apply_nparam_decryption(&stream_url, n_param_decryption_code);
+                            Self::apply_nparam_decryption(&stream_url, n_param_decryption_code).await;
                         match serde_json::from_value::<StreamItem>(format_data.clone()) {
                             Ok(stream_item) => match itag_type_wanted {
                                 ItagType::VideoOnly => {
@@ -283,8 +283,8 @@ impl<D: Downloader> YTStreamExtractor<D> {
         Self::match_group1(&N_PARAM_REGEX, url).ok()
     }
 
-    pub fn decrypt_n_param(n_param: &str, decryption_code: &str) -> String {
-        Self::decrypt_signature(n_param, decryption_code)
+    pub async fn decrypt_n_param(n_param: &str, decryption_code: &str) -> String {
+        Self::decrypt_signature(n_param, decryption_code).await
     }
 
     pub fn replace_n_param(url: &str, old_param: &str, new_param: &str) -> String {
@@ -292,9 +292,9 @@ impl<D: Downloader> YTStreamExtractor<D> {
         url.replace(old_param, new_param)
     }
 
-    pub fn apply_nparam_decryption(url: &str, decryption_code: &str) -> String {
+    pub async fn apply_nparam_decryption(url: &str, decryption_code: &str) -> String {
         if let Some(old_param) = Self::parse_n_param(url) {
-            let new_param = Self::decrypt_n_param(&old_param, decryption_code);
+            let new_param = Self::decrypt_n_param(&old_param, decryption_code).await;
             Self::replace_n_param(url, &old_param, &new_param)
         } else {
             url.to_string()
@@ -315,12 +315,12 @@ impl<D: Downloader> YTStreamExtractor<D> {
         Ok(player_code)
     }
 
-    fn decrypt_signature(encrypted_sig: &str, decryption_code: &str) -> String {
+    async fn decrypt_signature(encrypted_sig: &str, decryption_code: &str) -> String {
         // println!("encrypted_sig: {:#?}", encrypted_sig);
         // println!("decryption_code {:#?}", decryption_code);
 
         let script = format!("{};decrypt(\"{}\")", decryption_code, encrypted_sig);
-        let res = D::eval_js(&script);
+        let res = D::eval_js(&script).await;
 
         let result = res.unwrap_or_default();
 
@@ -962,7 +962,7 @@ impl<D: Downloader> YTStreamExtractor<D> {
 }
 
 impl<D: Downloader> YTStreamExtractor<D> {
-    pub fn get_video_stream(&self) -> Result<Vec<StreamItem>, ParsingError> {
+    pub async fn get_video_stream(&self) -> Result<Vec<StreamItem>, ParsingError> {
         let mut video_streams = vec![];
         for entry in YTStreamExtractor::<D>::get_itags(
             FORMATS,
@@ -970,7 +970,7 @@ impl<D: Downloader> YTStreamExtractor<D> {
             &self.player_response,
             &self.player_decryption_code,
             &self.player_n_param_decryption_code,
-        )? {
+        ).await? {
             let itag = entry.1;
             video_streams.push(StreamItem {
                 url: Some(entry.0),
@@ -980,7 +980,7 @@ impl<D: Downloader> YTStreamExtractor<D> {
         Ok(video_streams)
     }
 
-    pub fn get_video_only_stream(&self) -> Result<Vec<StreamItem>, ParsingError> {
+    pub async fn get_video_only_stream(&self) -> Result<Vec<StreamItem>, ParsingError> {
         let mut video_streams = vec![];
         for entry in YTStreamExtractor::<D>::get_itags(
             ADAPTIVE_FORMATS,
@@ -988,7 +988,7 @@ impl<D: Downloader> YTStreamExtractor<D> {
             &self.player_response,
             &self.player_decryption_code,
             &self.player_n_param_decryption_code,
-        )? {
+        ).await? {
             let itag = entry.1;
             video_streams.push(StreamItem {
                 url: Some(entry.0),
@@ -998,7 +998,7 @@ impl<D: Downloader> YTStreamExtractor<D> {
         Ok(video_streams)
     }
 
-    pub fn get_audio_streams(&self) -> Result<Vec<StreamItem>, ParsingError> {
+    pub async fn get_audio_streams(&self) -> Result<Vec<StreamItem>, ParsingError> {
         let mut audio_streams = vec![];
         for entry in YTStreamExtractor::<D>::get_itags(
             ADAPTIVE_FORMATS,
@@ -1006,7 +1006,7 @@ impl<D: Downloader> YTStreamExtractor<D> {
             &self.player_response,
             &self.player_decryption_code,
             &self.player_n_param_decryption_code,
-        )? {
+        ).await? {
             let itag = entry.1;
             audio_streams.push(StreamItem {
                 url: Some(entry.0),

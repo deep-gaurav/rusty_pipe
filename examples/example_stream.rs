@@ -24,12 +24,12 @@ async fn main() -> Result<(), failure::Error> {
     let downloader = DownloaderExample {};
     // let body = D::download(url).await?;
 
-    let mut stream_extractor = YTStreamExtractor::new("09R8_2nJtjg", downloader).await?;
+    let mut stream_extractor = YTStreamExtractor::new("qwGwA2ZNSjE", downloader).await?;
     // let video_streams = stream_extractor.get_video_stream()?;
     // println!("AUDIO/VIDEO STREAMS \n");
     // println!("{:#?}", video_streams);
 
-    let audio_streams = stream_extractor.get_audio_streams()?;
+    let audio_streams = stream_extractor.get_audio_streams().await?;
     println!("AUDIO ONLY STREAMS \n");
     println!("{:#?}", audio_streams);
 
@@ -102,16 +102,25 @@ impl Downloader for DownloaderExample {
         Ok(String::from(body))
     }
 
-    fn eval_js(script: &str) -> Result<String, String> {
-        use quick_js::{Context, JsValue};
-        let context = Context::new().expect("Cant create js context");
-        // println!("decryption code \n{}",decryption_code);
-        // println!("signature : {}",encrypted_sig);
-        println!("jscode \n{}", script);
-        let res = context.eval(script).unwrap_or(quick_js::JsValue::Null);
-        // println!("js result : {:?}", result);
-        let result = res.into_string().unwrap_or("".to_string());
-        print!("JS result: {}", result);
+    async fn eval_js(script: &str) -> Result<String, String> {
+        // use quick_js::{Context, JsValue};
+        // let context = Context::new().expect("Cant create js context");
+        // // println!("decryption code \n{}",decryption_code);
+        // // println!("signature : {}",encrypted_sig);
+        // println!("jscode \n{}", script);
+        // let res = context.eval(script).unwrap_or(quick_js::JsValue::Null);
+        // // println!("js result : {:?}", result);
+        // let result = res.into_string().unwrap_or("".to_string());
+        // print!("JS result: {}", result);
+        let mut context = boa::Context::new();
+        let result = context.eval(script);
+        let result = match result {
+            Ok(val) => val.as_string().expect("Nottring").to_string(),
+            Err(err) => {
+                std::fs::write("js",script).expect("Cant write");
+                return Err(format!("{:#?}",err));
+            },
+        };
         Ok(result)
     }
 }
