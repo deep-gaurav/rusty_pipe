@@ -88,7 +88,7 @@ impl<D: Downloader> YTStreamExtractor<D> {
             video_id
         );
 
-        let doc = D::download(&url);
+        let doc = downloader.download(&url);
         let inital_ajax_json = Self::get_initial_ajax_json(&url, &downloader).await?;
         let initial_data = YTStreamExtractor::<D>::get_initial_data(&inital_ajax_json);
         let (doc, initial_data) = try_join!(doc, initial_data)?;
@@ -199,6 +199,7 @@ impl<D: Downloader> YTStreamExtractor<D> {
         player_response: &Map<String, Value>,
         decryption_code: &str,
         n_param_decryption_code: &str,
+        downloader: &D
     ) -> Result<HashMap<String, StreamItem>, ParsingError> {
         let mut url_and_itags = HashMap::new();
         let streaming_data = player_response.get("streamingData").unwrap_or(&Value::Null);
@@ -233,13 +234,14 @@ impl<D: Downloader> YTStreamExtractor<D> {
                                     cipher.get("sp").unwrap_or(&String::default()),
                                     &YTStreamExtractor::<D>::decrypt_signature(
                                         cipher.get("s").unwrap_or(&"".to_owned()),
-                                        decryption_code
+                                        decryption_code,
+                                        downloader
                                     ).await
                                 )
                             }
                         };
                         let stream_url =
-                            Self::apply_nparam_decryption(&stream_url, n_param_decryption_code).await;
+                            Self::apply_nparam_decryption(&stream_url, n_param_decryption_code,downloader).await;
                         match serde_json::from_value::<StreamItem>(format_data.clone()) {
                             Ok(stream_item) => match itag_type_wanted {
                                 ItagType::VideoOnly => {
@@ -283,8 +285,8 @@ impl<D: Downloader> YTStreamExtractor<D> {
         Self::match_group1(&N_PARAM_REGEX, url).ok()
     }
 
-    pub async fn decrypt_n_param(n_param: &str, decryption_code: &str) -> String {
-        Self::decrypt_signature(n_param, decryption_code).await
+    pub async fn decrypt_n_param(n_param: &str, decryption_code: &str,downloader: &D) -> String {
+        Self::decrypt_signature(n_param, decryption_code,downloader).await
     }
 
     pub fn replace_n_param(url: &str, old_param: &str, new_param: &str) -> String {
@@ -292,9 +294,9 @@ impl<D: Downloader> YTStreamExtractor<D> {
         url.replace(old_param, new_param)
     }
 
-    pub async fn apply_nparam_decryption(url: &str, decryption_code: &str) -> String {
+    pub async fn apply_nparam_decryption(url: &str, decryption_code: &str,downloader: &D) -> String {
         if let Some(old_param) = Self::parse_n_param(url) {
-            let new_param = Self::decrypt_n_param(&old_param, decryption_code).await;
+            let new_param = Self::decrypt_n_param(&old_param, decryption_code,downloader).await;
             Self::replace_n_param(url, &old_param, &new_param)
         } else {
             url.to_string()
@@ -311,16 +313,16 @@ impl<D: Downloader> YTStreamExtractor<D> {
                 format!("https://youtube.com{}", player_url)
             }
         };
-        let player_code = D::download(&player_url).await?;
+        let player_code = downloader.download(&player_url).await?;
         Ok(player_code)
     }
 
-    async fn decrypt_signature(encrypted_sig: &str, decryption_code: &str) -> String {
+    async fn decrypt_signature(encrypted_sig: &str, decryption_code: &str,downloader: &D) -> String {
         // println!("encrypted_sig: {:#?}", encrypted_sig);
         // println!("decryption_code {:#?}", decryption_code);
 
         let script = format!("{};decrypt(\"{}\")", decryption_code, encrypted_sig);
-        let res = D::eval_js(&script).await;
+        let res = downloader.eval_js(&script).await;
 
         let result = res.unwrap_or_default();
 
@@ -388,14 +390,14 @@ impl<D: Downloader> YTStreamExtractor<D> {
             HARDCODED_CLIENT_VERSION.to_string(),
         );
         let url = format!("{}&pbj=1", url);
-        let data = D::download_with_header(&url, headers).await?;
+        let data = downloader.download_with_header(&url, headers).await?;
         let initial_ajax_json: Value = serde_json::from_str(&data).map_err(|e| e.to_string())?;
         Ok(initial_ajax_json)
     }
 
     async fn get_player_js_url_iframeapi(downloader: &D) -> Result<String, ParsingError> {
         let iframurl = "https://www.youtube.com/iframe_api";
-        let body = D::download(iframurl).await?;
+        let body = downloader.download(iframurl).await?;
         let hashPattern = "player\\\\\\/([a-z0-9]{8})\\\\\\/";
         let hash = YTStreamExtractor::<D>::match_group1(hashPattern, &body)?;
         Ok(format!(
@@ -416,7 +418,7 @@ impl<D: Downloader> YTStreamExtractor<D> {
             "X-YouTube-Client-Version".to_string(),
             HARDCODED_CLIENT_VERSION.to_string(),
         );
-        let data = D::download_with_header(&embed_url, headers).await?;
+        let data = downloader.download_with_header(&embed_url, headers).await?;
         let asset_pattern = "\"assets\":.+?\"js\":\\s*(\"[^\"]+\")";
         let url1 = Self::match_group1(asset_pattern, &data);
         match url1 {
@@ -969,7 +971,8 @@ impl<D: Downloader> YTStreamExtractor<D> {
             ItagType::Video,
             &self.player_response,
             &self.player_decryption_code,
-            &self.player_n_param_decryption_code,
+            &self.player_n_param_decryption_code,            &self.downloader
+
         ).await? {
             let itag = entry.1;
             video_streams.push(StreamItem {
@@ -988,6 +991,7 @@ impl<D: Downloader> YTStreamExtractor<D> {
             &self.player_response,
             &self.player_decryption_code,
             &self.player_n_param_decryption_code,
+            &self.downloader
         ).await? {
             let itag = entry.1;
             video_streams.push(StreamItem {
@@ -1005,7 +1009,8 @@ impl<D: Downloader> YTStreamExtractor<D> {
             ItagType::Audio,
             &self.player_response,
             &self.player_decryption_code,
-            &self.player_n_param_decryption_code,
+            &self.player_n_param_decryption_code,            &self.downloader
+
         ).await? {
             let itag = entry.1;
             audio_streams.push(StreamItem {
@@ -1030,7 +1035,7 @@ impl<D: Downloader> YTStreamExtractor<D> {
         })()
         .unwrap_or_default();
         use crate::youtube_extractor::search_extractor::YTSearchExtractor;
-        let items = YTSearchExtractor::collect_streams_from(&results);
+        let items = YTSearchExtractor::<D>::collect_streams_from(&results);
         items
     }
 }

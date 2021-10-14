@@ -22,9 +22,9 @@ async fn main() -> Result<(), Error> {
 
     search_query = encode(&search_query);
 
-    let search_extractor = YTSearchExtractor::new::<DownloaderExample>(&search_query, None).await?;
+    let search_extractor = YTSearchExtractor::new(&search_query, None,DownloaderExample).await?;
     let search_suggestion =
-        YTSearchExtractor::get_search_suggestion::<DownloaderExample>(&search_query).await?;
+        YTSearchExtractor::get_search_suggestion(&search_query,&DownloaderExample).await?;
 
     println!("Search suggestion {:#?}", search_suggestion);
     let mut items = search_extractor.search_results()?;
@@ -37,7 +37,7 @@ async fn main() -> Result<(), Error> {
             break;
         }
         let search_extractor =
-            YTSearchExtractor::new::<DownloaderExample>(&search_query, Some(url)).await?;
+            YTSearchExtractor::new(&search_query, Some(url),DownloaderExample).await?;
         items.append(&mut search_extractor.search_results()?);
         next_url = search_extractor.get_next_page_url()?;
         println!("Next page url : {:#?}", next_url);
@@ -149,7 +149,7 @@ struct DownloaderExample;
 
 #[async_trait]
 impl Downloader for DownloaderExample {
-    async fn download(url: &str) -> Result<String, ParsingError> {
+    async fn download(&self,url: &str) -> Result<String, ParsingError> {
         println!("query url : {}", url);
         let resp = reqwest::get(url)
             .await
@@ -167,7 +167,7 @@ impl Downloader for DownloaderExample {
         Ok(String::from(body))
     }
 
-    async fn download_with_header(
+    async fn download_with_header(&self,
         url: &str,
         header: HashMap<String, String>,
     ) -> Result<String, ParsingError> {
@@ -186,7 +186,7 @@ impl Downloader for DownloaderExample {
         Ok(String::from(body))
     }
 
-    async fn eval_js(script: &str) -> Result<String, String> {
+    async fn eval_js(&self,script: &str) -> Result<String, String> {
         use quick_js::{Context, JsValue};
         let context = Context::new().expect("Cant create js context");
         // println!("decryption code \n{}",decryption_code);
