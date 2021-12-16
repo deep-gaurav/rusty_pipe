@@ -111,7 +111,7 @@ impl Downloader for DownloaderExample {
         let res = context.eval(script).unwrap_or(quick_js::JsValue::Null);
         // println!("js result : {:?}", result);
         let result = res.into_string().unwrap_or("".to_string());
-        print!("JS result: {}", result);
+        println!("JS result: {}", result);
         Ok(result)
     }
 }

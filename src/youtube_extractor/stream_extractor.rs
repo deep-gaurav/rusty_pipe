@@ -23,10 +23,11 @@ const VERIFIED_URL_PARAMS: &str = "&has_verified=1&bpctr=9999999999";
 
 lazy_static! {
     static ref REGEXES: Vec<&'static str>=vec![
-        "(?:\\b|[^a-zA-Z0-9$])([a-zA-Z0-9$]{2})\\s*=\\s*function\\(\\s*a\\s*\\)\\s*\\{\\s*a\\s*=\\s*a\\.split\\(\\s*\"\"\\s*\\)",
+        "(?:\\b|[^a-zA-Z0-9$])([a-zA-Z0-9$]{2,})\\s*=\\s*function\\(\\s*a\\s*\\)\\s*\\{\\s*a\\s*=\\s*a\\.split\\(\\s*\"\"\\s*\\)",
+        "\\bm=([a-zA-Z0-9$]{2,})\\(decodeURIComponent\\(h\\.s\\)\\)",
+        "\\bc&&\\(c=([a-zA-Z0-9$]{2,})\\(decodeURIComponent\\(c\\)\\)",
         "([\\w$]+)\\s*=\\s*function\\((\\w+)\\)\\{\\s*\\2=\\s*\\2\\.split\\(\"\"\\)\\s*;",
-        "\\b([\\w$]{2})\\s*=\\s*function\\((\\w+)\\)\\{\\s*\\2=\\s*\\2\\.split\\(\"\"\\)\\s*;",
-        "yt\\.akamaized\\.net/\\)\\s*\\|\\|\\s*.*?\\s*c\\s*&&\\s*d\\.set\\([^,]+\\s*,\\s*(:encodeURIComponent\\s*\\()([a-zA-Z0-9$]+)\\(",
+        "\\b([\\w$]{2,})\\s*=\\s*function\\((\\w+)\\)\\{\\s*\\2=\\s*\\2\\.split\\(\"\"\\)\\s*;",
         "\\bc\\s*&&\\s*d\\.set\\([^,]+\\s*,\\s*(:encodeURIComponent\\s*\\()([a-zA-Z0-9$]+)\\("
     ];
 
@@ -105,7 +106,7 @@ impl<D: Downloader> YTStreamExtractor<D> {
         let secondary_info_renderer =
             YTStreamExtractor::<D>::get_secondary_info_renderer(&initial_data)?;
         if let Some(response) = initial_response {
-            if Self::is_decryption_needed(&response).unwrap_or(false) {
+            if Self::is_decryption_needed(&response).unwrap_or(true) {
                 let player_url = Self::get_player_js_url(video_id, &downloader).await?;
                 let player_code =
                     YTStreamExtractor::<D>::get_player_code(&player_url, &downloader).await?;
@@ -124,6 +125,7 @@ impl<D: Downloader> YTStreamExtractor<D> {
                     player_n_param_decryption_code,
                 })
             } else {
+                println!("Not loading nparam decryption");
                 Ok(YTStreamExtractor {
                     player_response: response,
                     downloader,
@@ -286,6 +288,7 @@ impl<D: Downloader> YTStreamExtractor<D> {
     }
 
     pub async fn decrypt_n_param(n_param: &str, decryption_code: &str,downloader: &D) -> String {
+        println!("Decrypt n param n_param {:#?} decryption code {:#?}",n_param,decryption_code);
         Self::decrypt_signature(n_param, decryption_code,downloader).await
     }
 
