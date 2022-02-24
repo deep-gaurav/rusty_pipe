@@ -24,7 +24,7 @@ async fn main() -> Result<(), failure::Error> {
     let downloader = DownloaderExample {};
     // let body = D::download(url).await?;
 
-    let mut stream_extractor = YTStreamExtractor::new("qwGwA2ZNSjE", downloader).await?;
+    let mut stream_extractor = YTStreamExtractor::new("7EvwIw4gIyk", downloader).await?;
     // let video_streams = stream_extractor.get_video_stream()?;
     // println!("AUDIO/VIDEO STREAMS \n");
     // println!("{:#?}", video_streams);

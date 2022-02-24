@@ -31,7 +31,7 @@ lazy_static! {
         "\\bc\\s*&&\\s*d\\.set\\([^,]+\\s*,\\s*(:encodeURIComponent\\s*\\()([a-zA-Z0-9$]+)\\("
     ];
 
-    static ref N_PARAM_FUNC_REGEX:&'static str = "b=a\\.get\\(\"n\"\\)\\)&&\\(b=(\\w+)\\(b\\),a\\.set\\(\"n\",b\\)";
+    static ref N_PARAM_FUNC_REGEX:&'static str = "b=a\\.get\\(\"n\"\\)\\)&&\\(b=(\\S+)\\(b\\),a\\.set\\(\"n\",b\\)";
 
     static ref N_PARAM_REGEX:&'static str ="[&?]n=([^&]+)";
 }
@@ -565,7 +565,7 @@ impl<D: Downloader> YTStreamExtractor<D> {
     fn load_n_param_decryption_code(player_code: &str) -> Result<String, ParsingError> {
         let decryption_func_name =
             YTStreamExtractor::<D>::get_n_param_decryption_func_name(player_code).ok_or(
-                ParsingError::parsing_error_from_str("Cant find decryption function"),
+                ParsingError::parsing_error_from_str("Cant find n_param decryption function"),
             )?;
 
         // println!("Decryption func name {}", decryption_func_name);
@@ -606,11 +606,32 @@ impl<D: Downloader> YTStreamExtractor<D> {
             let rege = pcre2::bytes::Regex::new(reg).ok()?;
             let capture = rege.captures(player_code.as_bytes()).unwrap();
             if let Some(capture) = capture {
-                return capture.get(1).map(|m| {
+                log::info!("NPARAM FUNC NAME CAPTURE {:#?}",capture);
+                let mut function_name= capture.get(1).map(|m| {
                     std::str::from_utf8(m.as_bytes())
                         .expect("Not utf8")
                         .to_string()
-                });
+                })?;
+                let array_start_brace = function_name.find("[");
+                if let Some(array_start_brace)=array_start_brace{
+                    let array_var_name = function_name[..array_start_brace].to_string();
+                    let order = function_name[array_start_brace+1..function_name.find("]")?].to_string();
+                    let array_num = order.parse::<usize>().ok()?;
+                    let array_pattern = pcre2::bytes::Regex::new(&format!("var {}=\\[(.+?)\\];",array_var_name)).ok()?;
+                    
+                    let capture = array_pattern.captures(player_code.as_bytes()).unwrap();
+                    if let Some(capture)=capture{
+                        let array_str = capture.get(1).map(|m| {
+                            std::str::from_utf8(m.as_bytes())
+                                .expect("Not utf8")
+                                .to_string()
+                        })?;
+                        let names = array_str.split(",").collect::<Vec<_>>();
+                        function_name = names.get(array_num)?.to_string();
+                    }
+                }
+                return  Some(function_name);
+
             }
         }
         None
